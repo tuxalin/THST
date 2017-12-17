@@ -5,7 +5,7 @@ Templated hierarchical spatial trees designed for high-performance.
 
 There are two tree implementations, a multi-dimensional RTree and a two-dimensional QuadTree.
 
-Some of the more features that are implemented:
+Some of the currently implemented features:
 - hierarchical, you can add values to the internal branch nodes or traverse them
 - leaf and depth-first tree traversals for spatial partitioning, via custom iterators
 - custom indexable getter similar to boost's
