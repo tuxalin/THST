@@ -1,4 +1,4 @@
-# Hierarchical spatial trees [![Build Status](https://travis-ci.org/tuxalin/thst.svg?branch=master)](https://travis-ci.org/tuxalin/thst)
+# Hierarchical spatial trees [![Build Status](https://travis-ci.org/tuxalin/THST.svg?branch=master)](https://travis-ci.org/tuxalin/THST)
 Templated hierarchical spatial trees designed for high-performance.
 
 ## Features
