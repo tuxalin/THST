@@ -7,6 +7,7 @@
 
 #include <assert.h>
 #include <stdint.h>
+#include <cstddef>
 
 namespace spatial {
 template <class NodeClass> struct heap_allocator {
