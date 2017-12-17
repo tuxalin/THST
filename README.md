@@ -5,7 +5,7 @@ Templated hierarchical spatial trees designed for high-performance.
 
 There are two tree implementations, a multi-dimensional RTree and a two-dimensional QuadTree.
 
-Some of the currently implemented features:
+Some of the currently implemented features are:
 - hierarchical, you can add values to the internal branch nodes or traverse them
 - leaf and depth-first tree traversals for spatial partitioning, via custom iterators
 - custom indexable getter similar to boost's
@@ -44,7 +44,7 @@ How to use the indexable getter:
   		std::string name;
   	};
 
-  	// helps to get the bounding of the values inserted
+  	// helps to get the bounding of the items inserted
   	struct Indexable {
     	const int *min(const Object &value) const { return value.bbox.min; }
     	const int *max(const Object &value) const { return value.bbox.max; }
@@ -59,7 +59,7 @@ How to use the indexable getter:
 
 Leaf and depth traversal:
 ```cpp
-	spatial::RTree<int, Object, 2, 4, 2, Indexable> rtree;
+    spatial::RTree<int, Object, 2, 4, 2, Indexable> rtree;
 
     // gives the spatial partioning order within the tree
     for (auto it = rtree.lbegin(); it.valid(); it.next()) {
@@ -79,7 +79,7 @@ Leaf and depth traversal:
     }
 ```
 
-Several search algorithms:
+How to use the search algorithms:
 ```cpp
     Box2<int> searchBox = {{0, 0}, {8, 31}};
 
@@ -87,7 +87,7 @@ Several search algorithms:
     rtree.overlaps(searchBox.min, searchBox.max, results);
     rtree.contains(searchBox.min, searchBox.max, results);
 
-    // to be used only if inserted points into the tree
+    // to be used only if the values inserted are represented by points
     rtree.within(searchBox.min, searchBox.max, results);
 
     // hierachical query that will break the search if a node is fully contained
