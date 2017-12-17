@@ -27,7 +27,7 @@
 #define SPATIAL_TREE_STATIC_ASSERT(cond, msg)                                  \
   spatial::detail::static_assertion<(cond)> SPATIAL_TREE_TOKENPASTE2(          \
       static_assert_t, __LINE__);                                              \
-  (void)(TN_TOKENPASTE2(static_assert_t, __LINE__));
+  (void)(SPATIAL_TREE_TOKENPASTE2(static_assert_t, __LINE__));
 
 #if defined(__clang__)
 #if __has_attribute(enable_if) && !defined(NDEBUG)
