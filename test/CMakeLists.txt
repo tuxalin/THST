@@ -9,4 +9,3 @@ set(SOURCE_FILES ../RTree.h ../rtree_detail.h ../config.h ../bbox.h ../allocator
 include_directories("${CMAKE_SOURCE_DIR}/../")
 
 add_executable(test ${SOURCE_FILES} main.cpp)
-add_executable(bench ${SOURCE_FILES} bench.cpp)
