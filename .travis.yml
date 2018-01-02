@@ -74,6 +74,10 @@ matrix:
             - clang-3.8
       env: COMPILER=clang++-3.8
 
-before_script: ./bin/ci/before_install.sh
-script: ./bin/ci/script.sh
+before_script: 
+  - chmod +x ./bin/ci/before_install.sh
+  - ./bin/ci/before_install.sh
+script: 
+  - chmod +x ./bin/ci/script.sh
+  - ./bin/ci/script.sh
   
