@@ -79,11 +79,15 @@ before_script:
   - cd test
   - cmake --version
   - (mkdir build && cd build && cmake ..)
-  - ./../../benchmark/bin/ci/before_install.sh
+  - cd ../../
+  - pwd
+  - ../benchmark/bin/ci/before_install.sh
 script:
-  - cd build
+  - cd test/build
   - ls
   - make
   - ./test
-  - ./../../benchmark/bin/ci/script.sh
+  - cd ../../
+  - pwd
+  - ./benchmark/bin/ci/script.sh
   

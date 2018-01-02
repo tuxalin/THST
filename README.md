@@ -1,5 +1,5 @@
 # Hierarchical spatial trees [![Build Status](https://travis-ci.org/tuxalin/THST.svg?branch=master)](https://travis-ci.org/tuxalin/THST)
-Templated hierarchical spatial trees designed for high-performance.
+Templated hierarchical spatial trees designed for high-performance and hierarchical spatial partitioning use cases.
 
 ## Features
 
@@ -113,7 +113,7 @@ Be sure to check the test folder for more detailed examples.
 
 Benchmark setup is based on [spatial_index_benchmark](https://github.com/mloskot/spatial_index_benchmark) by Mateusz Loskot and Adam Wulkiewicz.
 
-Complete set of result logs in [results](benchmark/results) directory.
+Complete set of result logs in [results](results) directory.
 
 ### Results
 
@@ -141,7 +141,7 @@ HW: Intel(R) Core(TM) i7-4870HQ CPU @ 2.50GHz, 16 GB RAM; OS: macOS Sierra 10.12
 
 ![dynamic thst_vs_bgi](benchmark/results/benchmark_dynamic_bgi_vs_thst.png)
 
-For more detailed benchmark results check the [benchmark](benchmark) directory.
+For more detailed benchmark results check the results folder.
 
 ### Legend
 ------
