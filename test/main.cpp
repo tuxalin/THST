@@ -86,6 +86,7 @@ int main() {
     qtree.insert(box);
     rtree.insert(box);
 
+#ifdef SPATIAL_TREE_CPP11
     // insert only if predicate is always valid
     Box2<int> box2 = {{7, 4}, {14, 6}};
     bool wasAdded =
@@ -94,6 +95,7 @@ int main() {
           return !bbox.overlaps(cbbox);
         });
     std::cout << "Condition insert: " << wasAdded << "\n";
+#endif
     std::cout << "Created trees, element count: " << rtree.count() << "\n";
     std::cout << std::endl;
   }
