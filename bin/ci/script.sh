@@ -1,18 +1,22 @@
 #!/bin/bash
 
-./test/build/Debug/test
+echo "Building test examples"
+cd test
+mkdir build && cd build && cmake ..
+make
+ls
+./test
+cd ../../
 
 # Builds and runs spatial_index_benchmark
 source ./bin/ci/common.sh
 cd benchmark
-mkdir -p _build
-cd _build
+mkdir build && cd build
 echo "Calling cmake -DBOOST_PREFIX=${BOOST_PREFIX}"
 cmake \
     -DCMAKE_BUILD_TYPE=Release \
     -DBGI_ENABLE_CT=ON \
     ..
-#cmake --build .
 make -j ${NUMTHREADS}
 
 # Benchmarks run takes long time, skip
