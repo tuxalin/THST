@@ -76,14 +76,7 @@ matrix:
 
 before_script:
   - cd ${TRAVIS_BUILD_DIR}
-  - ./benchmark/bin/ci/before_install.sh
-  - cd test
-  - cmake --version
-  - (mkdir build && cd build && cmake ..)
+  - ./bin/ci/before_install.sh
 script:
-  - ls
-  - make
-  - ./test
-  - cd ../../
-  - ./benchmark/bin/ci/script.sh
+  - ./bin/ci/script.sh
   
