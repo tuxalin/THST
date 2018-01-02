@@ -1,6 +1,6 @@
 #!/bin/bash
 
-./test/build/test
+./test/build/Debug/test
 
 # Builds and runs spatial_index_benchmark
 source ./bin/ci/common.sh
@@ -10,7 +10,6 @@ cd _build
 echo "Calling cmake -DBOOST_PREFIX=${BOOST_PREFIX}"
 cmake \
     -DCMAKE_BUILD_TYPE=Release \
-    -DBOOST_ROOT=${BOOST_PREFIX} \
     -DBGI_ENABLE_CT=ON \
     ..
 #cmake --build .
