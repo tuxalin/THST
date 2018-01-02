@@ -74,9 +74,6 @@ matrix:
             - clang-3.8
       env: COMPILER=clang++-3.8
 
-before_script:
-  - cd ${TRAVIS_BUILD_DIR}
-  - ./bin/ci/before_install.sh
-script:
-  - ./bin/ci/script.sh
+before_script: ./bin/ci/before_install.sh
+script: ./bin/ci/script.sh
   
