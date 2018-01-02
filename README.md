@@ -11,6 +11,7 @@ Some of the currently implemented features are:
 - custom indexable getter similar to boost's
 - hierarchical query
 - nearest neighbour search
+- conditional insert with custom predicates
 - support for custom allocators for internal nodes
 - estimation for node count given a number of items
 - tagging of internal nodes
@@ -37,6 +38,15 @@ How to create and insert items to the trees:
   	rtree.insert(box);
 ``` 	
 
+Conditional insert:
+```cpp
+    const decltype(rtree)::bbox_type boxToAdd = {{7, 4}, {14, 6}};
+    bool wasAdded =
+        rtree.insert(boxToAdd, [&boxToAdd](const decltype(rtree)::bbox_type &bbox) {
+          return !bbox.overlaps(boxToAdd);
+        });
+``` 
+
 How to use the indexable getter:
 ```cpp
  	struct Object {
@@ -59,7 +69,7 @@ How to use the indexable getter:
 
 Leaf and depth traversal:
 ```cpp
-    spatial::RTree<int, Object, 2, 4, 2, Indexable> rtree;
+	spatial::RTree<int, Object, 2, 4, 2, Indexable> rtree;
 
     // gives the spatial partioning order within the tree
     for (auto it = rtree.lbegin(); it.valid(); it.next()) {
@@ -84,20 +94,73 @@ How to use the search algorithms:
     Box2<int> searchBox = {{0, 0}, {8, 31}};
 
     std::vector<Box2<int>> results;
-    rtree.overlaps(searchBox.min, searchBox.max, results);
-    rtree.contains(searchBox.min, searchBox.max, results);
+    rtree.query(spatial::intersects<2>(searchBox.min, searchBox.max), std::back_inserter(results));
+    rtree.query(spatial::contains<2>(searchBox.min, searchBox.max), std::back_inserter(results));
 
-    // to be used only if the values inserted are represented by points
-    rtree.within(searchBox.min, searchBox.max, results);
+    // to be used only if inserted points into the tree
+    rtree.query(spatial::within<2>(searchBox.min, searchBox.max), std::back_inserter(results));
 
     // hierachical query that will break the search if a node is fully contained
-    rtree.hierachical_query(searchBox.min, searchBox.max, results);
+    rtree.hierachical_query(spatial::intersects<2>(searchBox.min, searchBox.max), std::back_inserter(results));
 
     // neatest neighbor search
-    rtree.nearest(point, radius, results);
+    rtree.nearest(point, radius, std::back_inserter(results));
 ```
 
 Be sure to check the test folder for more detailed examples.
+
+## Benchmarks
+
+Benchmark setup is based on [spatial_index_benchmark](https://github.com/mloskot/spatial_index_benchmark) by Mateusz Loskot and Adam Wulkiewicz.
+
+Complete set of result logs in [results](results) directory.
+
+### Results
+
+HW: Intel(R) Core(TM) i7-4870HQ CPU @ 2.50GHz, 16 GB RAM; OS: macOS Sierra 10.12.16
+
+* Loading times for each of the R-tree construction methods
+
+![load thst_vs_bgi](benchmark/results/benchmark_load_bgi_vs_thst.png)
+
+![load boost::geometry](benchmark/results/bgi_benchmark_rtree_load_itr_vs_blk.png)
+
+![load thst](benchmark/results/thst_benchmark_load_itr.png)
+
+* Query times for each of the R-tree construction methods
+
+![query thst_vs_bgi](benchmark/results/benchmark_query_bgi_vs_thst.png)
+
+![query boost::geometry](benchmark/results/bgi_benchmark_rtree_query_itr_vs_blk.png)
+
+![query thst](benchmark/results/thst_benchmark_query_itr.png)
+
+![query thst](benchmark/results/thst_benchmark_query_cst.png)
+
+* Dynamic use case, average time for each of the R-tree construction methods
+
+![dynamic thst_vs_bgi](benchmark/results/benchmark_dynamic_bgi_vs_thst.png)
+
+For more detailed benchmark results check the results folder.
+
+### Legend
+------
+
+* ```bgi``` - boost::geometry::index, compile time
+* ```thst``` - thst
+* ```ct``` - compile-time specification of rtree parameters
+* ```rt``` (or non suffix) - Boost.Geometry-only, run-time specification of rtree parameters
+* ```L``` - linear
+* ```Q``` - quadratic
+* ```QT``` - quadtree
+* ```R``` - rstar
+* ```itr (or no suffix)```  - iterative insertion method of building rtree
+* ```blk```  - bulk loading method of building R-tree (custom algorithm for ```bgi```)
+* ```custom``` - custom allocator variant for thst(cache friendly, linear memory)
+* ```sphere``` - sphere volume for computing the boxes's volume, better splitting but costlier
+* insert 1000000 - number of objects small random boxes
+* query   100000 - number of instersection-based queries with random boxes 10x larger than those inserted
+* dynamic 200 - number of runs composed of clear, instersection-based queries and insert with small random boxes
 
 ## Future improvements
 
