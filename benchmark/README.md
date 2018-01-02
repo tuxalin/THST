@@ -9,12 +9,14 @@
 
 ### Instructions
 
+```bash
 cmake .. -G Xcode -DBGI_ENABLE_CT=ON -DCMAKE_BUILD_TYPE=Release
 make -j 8
 ./run_benchmark.sh ./build/Release/ <your_results_folder>
 
 The benchmark script will also run the gnuplot command:
 gnuplot ./plot_results.plt
+```
 
 ## Benchmarks
 
