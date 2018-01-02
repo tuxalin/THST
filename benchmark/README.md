@@ -26,45 +26,45 @@ HW: Intel(R) Core(TM) i7-4870HQ CPU @ 2.50GHz, 16 GB RAM; OS: macOS Sierra 10.12
 
 * Loading times for each of the R-tree construction methods
 
-![load thst_vs_bgi](benchmark_load_bgi_vs_thst.png)
+![load thst_vs_bgi](results/benchmark_load_bgi_vs_thst.png)
 
 Best loading performance is given by the bulk loading algorithm, followed by linear:
-![load boost::geometry](bgi_benchmark_rtree_load_itr_vs_blk.png)
+![load boost::geometry](results/bgi_benchmark_rtree_load_itr_vs_blk.png)
 
 As expected, the heurestic type doesn't affect bulk loading performance:
-![load balance boost::geometry](bgi_benchmark_rtree_load_blk_vs_balancing.png)
+![load balance boost::geometry](results/bgi_benchmark_rtree_load_blk_vs_balancing.png)
 
 Creating the quadtree is very slow for capacities between 256 and 1024, while the custom quadratic variant produces the best performance:
-![load thst](thst_benchmark_load_itr.png)
+![load thst](results/thst_benchmark_load_itr.png)
 
 * Query times for each of the R-tree construction methods
 
-![query thst_vs_bgi](benchmark_query_bgi_vs_thst.png)
+![query thst_vs_bgi](results/benchmark_query_bgi_vs_thst.png)
 
 Best query times, rstar and bulk loading produce best times and followed by the thst's quadratic custom:
-![query thst_vs_bgi](benchmark_query_bgi_vs_thst_best.png)
+![query thst_vs_bgi](results/benchmark_query_bgi_vs_thst_best.png)
 
 Bulk loading produces the best query times from all heurestics:
-![query boost::geometry](bgi_benchmark_rtree_query_itr_vs_blk.png)
+![query boost::geometry](results/bgi_benchmark_rtree_query_itr_vs_blk.png)
 
 As expected, the heurestic type doesn't affect query performance of the bulk loading algorithm:
-![query balance boost::geometry](bgi_benchmark_rtree_query_blk_vs_balancing.png)
+![query balance boost::geometry](results/bgi_benchmark_rtree_query_blk_vs_balancing.png)
 
 Query times for the quadtree are really slow:
-![query thst](thst_benchmark_query_itr.png)
+![query thst](results/thst_benchmark_query_itr.png)
 
 The custom allocator is slightly faster than the normal one:
-![query thst](thst_benchmark_query_cst.png)
+![query thst](results/thst_benchmark_query_cst.png)
 
 * Dynamic use case, average time for each of the R-tree construction methods
 
-![dynamic thst_vs_bgi](benchmark_dynamic_bgi_vs_thst.png)
+![dynamic thst_vs_bgi](results/benchmark_dynamic_bgi_vs_thst.png)
 
 At around 400 objects the thst quadratic method is faster than the bgi linear version:
-![dynamic2 thst_vs_bgi](benchmark_dynamic_small_bgi_vs_thst.png)
+![dynamic2 thst_vs_bgi](results/benchmark_dynamic_small_bgi_vs_thst.png)
 
 Under 400 objects bgi linear is slightly faster, however this heavily depends on how many objects pass the query test, in the given test case almost all objects pass the intersection test.
-![dynamic2 thst_vs_bgi](benchmark_dynamic_small_bgi_vs_thst.png)
+![dynamic2 thst_vs_bgi](results/benchmark_dynamic_small_bgi_vs_thst.png)
 
 ### Legend
 ------
