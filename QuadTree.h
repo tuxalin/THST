@@ -9,6 +9,7 @@
 #include "bbox.h"
 #include "config.h"
 #include "indexable.h"
+#include "predicates.h"
 #include "quad_tree_detail.h"
 #include <vector>
 
@@ -41,6 +42,8 @@ class QuadTree {
 public:
   typedef BoundingBox<T, 2> bbox_type;
   typedef custom_allocator allocator_type;
+
+  static const size_t max_items = max_child_items;
 
 private:
   typedef detail::QuadTreeNode<T, ValueType, max_child_items> node_type;
@@ -177,20 +180,22 @@ public:
 
   /// Special query to find all within search rectangle using the hierarchical
   /// order.
+  /// @see spatial::SpatialPredicate for available predicates.
   /// \return Returns the number of entries found.
-  template <typename OutIter>
-  size_t hierachical_query(const T min[2], const T max[2],
-                           OutIter out_it) const;
-  size_t hierachical_query(const T min[2], const T max[2],
-                           std::vector<ValueType> &results) const;
-
+  template <typename Predicate, typename OutIter>
+  size_t hierachical_query(const Predicate &predicate, OutIter out_it) const;
   ///@param containment_factor the containment factor in percentange used for
   /// query, if the total number of visible.
   ///@note Only used for special/hierarchical query.
   void setContainmentFactor(int factor);
 
+  /// @see spatial::SpatialPredicate for available predicates.
+  template <typename Predicate> bool query(const Predicate &predicate) const;
+  template <typename Predicate, typename OutIter>
+  size_t query(const Predicate &predicate, OutIter out_it) const;
+
   /// Remove all entries from tree
-  void clear();
+  void clear(bool recursiveCleanup = true);
   /// Count the data elements in this container.
   size_t count() const;
   /// Returns the number of levels(height) of the tree.
@@ -229,7 +234,7 @@ TREE_QUAL::QuadTree(const T min[2], const T max[2], //
                     indexable_getter indexable /*= indexable_getter()*/,
                     const allocator_type &allocator /*= allocator_type()*/)
     : m_indexable(indexable), m_allocator(allocator), m_count(0), m_levels(0),
-      m_factor(60) {
+      m_root(NULL), m_factor(60) {
   SPATIAL_TREE_STATIC_ASSERT((max_child_items > 1), "Invalid child size!");
 
   m_root = m_allocator.allocate(0);
@@ -266,6 +271,8 @@ void TREE_QUAL::setBox(const T min[2], const T max[2]) {
 
 TREE_TEMPLATE
 template <typename Iter> void TREE_QUAL::insert(Iter first, Iter last) {
+  assert(m_root);
+
   bool success = true;
   for (Iter it = first; it != last; ++it) {
     const object_type obj(*it, m_indexable);
@@ -279,6 +286,8 @@ template <typename Iter> void TREE_QUAL::insert(Iter first, Iter last) {
 
 TREE_TEMPLATE
 void TREE_QUAL::insert(const ValueType &value) {
+  assert(m_root);
+
   const object_type obj(value, m_indexable);
   assert(m_root->box.contains(obj.box));
 
@@ -293,28 +302,35 @@ TREE_TEMPLATE
 void TREE_QUAL::translate(const T point[2]) { m_root->translate(point); }
 
 TREE_TEMPLATE
-template <typename OutIter>
-size_t TREE_QUAL::hierachical_query(const T min[2], const T max[2],
+template <typename Predicate, typename OutIter>
+size_t TREE_QUAL::hierachical_query(const Predicate &predicate,
                                     OutIter out_it) const {
-  const bbox_type bbox(min, max);
-  return m_root->query(bbox, m_factor, out_it);
-}
-
-TREE_TEMPLATE
-size_t TREE_QUAL::hierachical_query(const T min[2], const T max[2],
-                                    std::vector<ValueType> &results) const {
-  const bbox_type bbox(min, max);
-  return m_root->query(bbox, m_factor, results);
+  assert(m_root);
+  return m_root->queryHierachical(predicate, m_factor, out_it);
 }
 
 TREE_TEMPLATE
 void TREE_QUAL::setContainmentFactor(int factor) { m_factor = factor / 100.f; }
 
 TREE_TEMPLATE
-void TREE_QUAL::clear() {
+template <typename Predicate>
+bool TREE_QUAL::query(const Predicate &predicate) const {
+  return query(predicate, spatial::detail::dummy_iterator()) > 0;
+}
+
+TREE_TEMPLATE
+template <typename Predicate, typename OutIter>
+size_t TREE_QUAL::query(const Predicate &predicate, OutIter out_it) const {
+  assert(m_root);
+  return m_root->query(predicate, m_factor, out_it);
+}
+
+TREE_TEMPLATE
+void TREE_QUAL::clear(bool recursiveCleanup /*= true*/) {
   // Delete all existing nodes
-  if (!m_allocator.overflowed()) {
-    m_root->clear(m_allocator);
+  if (recursiveCleanup && !m_allocator.overflowed()) {
+    if (m_root)
+      m_root->clear(m_allocator);
     m_allocator.deallocate(m_root);
   }
 
@@ -353,11 +369,13 @@ const typename TREE_QUAL::allocator_type &TREE_QUAL::allocator() const {
 
 TREE_TEMPLATE
 typename TREE_QUAL::node_iterator TREE_QUAL::root() {
+  assert(m_root);
   return node_iterator(m_root, m_levels);
 }
 
 TREE_TEMPLATE
 typename TREE_QUAL::depth_iterator TREE_QUAL::dbegin() {
+  assert(m_root);
   depth_iterator it(m_levels);
 
   it.push(m_root, 0, -1);
@@ -399,6 +417,7 @@ typename TREE_QUAL::depth_iterator TREE_QUAL::dbegin() {
 
 TREE_TEMPLATE
 typename TREE_QUAL::leaf_iterator TREE_QUAL::lbegin() {
+  assert(m_root);
   leaf_iterator it(m_levels);
 
   it.push(m_root, 0, -1);

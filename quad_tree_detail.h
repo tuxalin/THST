@@ -86,13 +86,12 @@ template <class T, class ValueType, int max_child_items> struct QuadTreeNode {
 
   template <typename custom_allocator>
   bool insert(const object_type &obj, int &levels, custom_allocator &allocator);
-  template <typename OutIter>
-  size_t query(const bbox_type &bbox, float factor, OutIter out_it) const;
-  size_t query(const bbox_type &bbox, float factor,
-               std::vector<ValueType> &results) const;
-  template <typename custom_allocator>
-
-  void clear(custom_allocator &allocator);
+  template <typename Predicate, typename OutIter>
+  size_t query(const Predicate &predicate, float factor, OutIter out_it) const;
+  template <typename Predicate, typename OutIter>
+  size_t queryHierachical(const Predicate &predicate, float factor,
+                          OutIter out_it) const;
+  template <typename custom_allocator> void clear(custom_allocator &allocator);
   void translate(const T point[2]);
   size_t count() const;
   bool isEmpty() const;
@@ -194,13 +193,53 @@ bool TREE_QUAL::insert(const object_type &obj, int &levels,
 }
 
 TREE_TEMPLATE
-template <typename OutIter>
-size_t TREE_QUAL::query(const bbox_type &bbox, float containmentFactor,
+template <typename Predicate, typename OutIter>
+size_t TREE_QUAL::query(const Predicate &predicate, float containmentFactor,
                         OutIter out_it) const {
   assert(m_count == count());
 
   size_t foundCount = 0;
-  if (bbox.contains(this->box) && !isEmpty()) {
+
+  // go further into the tree
+  for (typename ObjectList::const_iterator it = objects.begin();
+       it != objects.end(); ++it) {
+    if (predicate(it->box)) {
+      *out_it = it->value;
+      ++out_it;
+      ++foundCount;
+    }
+  }
+
+  if (isLeaf()) {
+    // reached leaves
+    return foundCount;
+  }
+
+  for (int i = 0; i < 4; i++) {
+    assert(children[i]);
+
+    QuadTreeNode &node = *children[i];
+    // Break if we know that the zone is fully contained by a region
+    if (predicate.bbox.overlaps(node.box)) {
+      foundCount += node.query(predicate, containmentFactor, out_it);
+      if (node.box.contains(predicate.bbox)) {
+        break;
+      }
+    }
+  }
+
+  return foundCount;
+}
+
+TREE_TEMPLATE
+template <typename Predicate, typename OutIter>
+size_t TREE_QUAL::queryHierachical(const Predicate &predicate,
+                                   float containmentFactor,
+                                   OutIter out_it) const {
+  assert(m_count == count());
+
+  size_t foundCount = 0;
+  if (predicate.bbox.contains(this->box) && !isEmpty()) {
     // node is fully contained by the query
     *out_it = value;
     ++out_it;
@@ -213,7 +252,7 @@ size_t TREE_QUAL::query(const bbox_type &bbox, float containmentFactor,
   // go further into the tree
   for (typename ObjectList::const_iterator it = objects.begin();
        it != objects.end(); ++it) {
-    if (it->box.overlaps(bbox)) {
+    if (predicate(it->box)) {
       *out_it = it->value;
       ++out_it;
       ++foundCount;
@@ -241,9 +280,9 @@ size_t TREE_QUAL::query(const bbox_type &bbox, float containmentFactor,
 
     QuadTreeNode &node = *children[i];
     // Break if we know that the zone is fully contained by a region
-    if (node.box.overlaps(bbox)) {
-      foundCount += node.query(bbox, containmentFactor, out_it);
-      if (node.box.contains(bbox)) {
+    if (predicate.bbox.overlaps(node.box)) {
+      foundCount += node.query(predicate, containmentFactor, out_it);
+      if (node.box.contains(predicate.bbox)) {
         break;
       }
     }
@@ -256,70 +295,6 @@ size_t TREE_QUAL::query(const bbox_type &bbox, float containmentFactor,
       // node is fully contained by the query
       *out_it = value;
       ++out_it;
-      foundCount = m_count;
-    }
-  }
-
-  return foundCount;
-}
-
-TREE_TEMPLATE
-size_t TREE_QUAL::query(const bbox_type &bbox, float containmentFactor,
-                        std::vector<ValueType> &results) const {
-  assert(m_count == count());
-
-  size_t foundCount = 0;
-  if (bbox.contains(this->box) && !isEmpty()) {
-    // node is fully contained by the query
-    results.push_back(value);
-    foundCount += m_count;
-    return foundCount;
-  }
-
-  const size_t start = results.size();
-  // go further into the tree
-  for (typename ObjectList::const_iterator it = objects.begin();
-       it != objects.end(); ++it) {
-    if (it->box.overlaps(bbox)) {
-      results.push_back(it->value);
-      ++foundCount;
-    }
-  }
-
-  if (isLeaf()) {
-    if (foundCount) {
-      const float factor = foundCount * m_invCount;
-      if (factor > containmentFactor) {
-        results.resize(start);
-        // node is fully contained by the query
-        results.push_back(value);
-        foundCount = m_count;
-      }
-    }
-
-    // reached leaves
-    return foundCount;
-  }
-
-  for (int i = 0; i < 4; i++) {
-    assert(children[i]);
-
-    QuadTreeNode &node = *children[i];
-    // Break if we know that the zone is fully contained by a region
-    if (node.box.overlaps(bbox)) {
-      foundCount += node.query(bbox, containmentFactor, results);
-      if (node.box.contains(bbox)) {
-        break;
-      }
-    }
-  }
-
-  if (foundCount) {
-    const float factor = foundCount * m_invCount;
-    if (factor > containmentFactor) {
-      results.resize(start);
-      // node is fully contained by the query
-      results.push_back(value);
       foundCount = m_count;
     }
   }
