@@ -1,4 +1,6 @@
 
+#include "custom_allocator.h"
+
 #include <QuadTree.h>
 #include <RTree.h>
 #include <iostream>
@@ -38,49 +40,6 @@ std::ostream &operator<<(std::ostream &stream, const Box2<T> &bbox) {
 struct Object {
   spatial::BoundingBox<int, 2> bbox;
   std::string name;
-};
-
-// example of a cache friendly allocator with contiguous memory
-template <class NodeClass> struct tree_allocator {
-  static const size_t kMaxNodeCount = 100;
-
-  typedef NodeClass value_type;
-  typedef NodeClass *ptr_type;
-
-  enum { is_overflowable = 0 };
-
-  tree_allocator() : buffer(kMaxNodeCount), count(0), index(0) {}
-
-  ptr_type allocate(int level) {
-    std::cout << "Allocate node: " << level << " current count: " << count
-              << "\n";
-
-    assert(count + 1 < kMaxNodeCount);
-    ++count;
-    buffer[index] = NodeClass(level);
-    return &buffer[index++];
-  }
-
-  void deallocate(const ptr_type node) {
-    std::cout << "Deallocate node: " << node->level << " - " << node->count
-              << " current count: " << count << "\n";
-
-    assert(count > 0);
-    if (count > 1)
-      --count;
-    else {
-      count = 0;
-      index = 0;
-    }
-  }
-
-  void clear() { buffer.clear(); }
-
-  bool overflowed() const { return false; }
-
-  std::vector<NodeClass> buffer;
-  size_t count;
-  size_t index;
 };
 
 const Box2<int> kBoxes[] = {
@@ -127,7 +86,15 @@ int main() {
     qtree.insert(box);
     rtree.insert(box);
 
-    std::cout << "Created trees, element count: " << qtree.count() << "\n";
+    // insert only if predicate is always valid
+    Box2<int> box2 = {{7, 4}, {14, 6}};
+    bool wasAdded =
+        rtree.insert(box2, [&box2](const decltype(rtree)::bbox_type &bbox) {
+          const decltype(rtree)::bbox_type cbbox(box2.min, box2.max);
+          return !bbox.overlaps(cbbox);
+        });
+    std::cout << "Condition insert: " << wasAdded << "\n";
+    std::cout << "Created trees, element count: " << rtree.count() << "\n";
     std::cout << std::endl;
   }
 
@@ -135,13 +102,19 @@ int main() {
   {
     Box2<int> searchBox = {{0, 0}, {8, 31}};
     std::vector<Box2<int>> results;
-    rtree.overlaps(searchBox.min, searchBox.max, results);
+    rtree.query(spatial::intersects<2>(searchBox.min, searchBox.max),
+                std::back_inserter(results));
     std::cout << "Overlaps results: " << std::endl;
     for (const auto &res : results)
       std::cout << res << "\n";
 
     results.clear();
-    rtree.contains(searchBox.min, searchBox.max, results);
+    qtree.query(spatial::intersects<2>(searchBox.min, searchBox.max),
+                std::back_inserter(results));
+
+    results.clear();
+    rtree.query(spatial::contains<2>(searchBox.min, searchBox.max),
+                std::back_inserter(results));
     std::cout << "Contains results: " << std::endl;
     for (const auto &res : results)
       std::cout << res << "\n";
@@ -212,7 +185,9 @@ int main() {
                 << "\n";
       std::vector<Object> results;
       Box2<int> searchBox = {{0, 0}, {8, 31}};
-      rtree.hierachical_query(searchBox.min, searchBox.max, results);
+      rtree.hierachical_query(
+          spatial::intersects<2>(searchBox.min, searchBox.max),
+          std::back_inserter(results));
       for (const auto &res : results)
         std::cout << res.name << "\n";
     }
@@ -242,7 +217,8 @@ int main() {
 
     indices.clear();
     Box2<int> searchBox = {{0, 0}, {8, 31}};
-    rtree.overlaps(searchBox.min, searchBox.max, indices);
+    rtree.query(spatial::intersects<2>(searchBox.min, searchBox.max),
+                std::back_inserter(indices));
     std::cout << "Object query results: " << std::endl;
     for (auto index : indices)
       std::cout << "index: " << index << " " << objects[index].name << " "
@@ -256,17 +232,17 @@ int main() {
       const int kMaxKeysPerNode = 4;
       const int kVolumeMode = spatial::box::eSphericalVolume;
 
-      typedef spatial::BoundingBox<int, 2, kVolumeMode, double> tree_bbox_type;
+      typedef spatial::BoundingBox<int, 2> tree_bbox_type;
       typedef spatial::detail::Node<uint32_t, tree_bbox_type, kMaxKeysPerNode>
           tree_node_type;
-      typedef tree_allocator<tree_node_type> tree_allocator_type;
+      typedef test::tree_allocator<tree_node_type> tree_allocator_type;
 
       typedef spatial::RTree<int, uint32_t, 2, kMaxKeysPerNode,
                              kMaxKeysPerNode / 2, ArrayIndexable, kVolumeMode,
                              double, tree_allocator_type>
           CustomTree;
 
-      CustomTree rtree(indexable, tree_allocator_type());
+      CustomTree rtree(indexable, tree_allocator_type(), true);
 
       indices.resize(boxes.size());
       std::iota(indices.begin(), indices.end(), 0);
