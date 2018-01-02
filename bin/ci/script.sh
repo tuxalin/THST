@@ -4,6 +4,7 @@ echo "Building test examples"
 cd test
 mkdir build && cd build && cmake ..
 make
+echo "Current folder"
 ls
 ./test
 cd ../../
