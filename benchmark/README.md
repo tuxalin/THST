@@ -66,7 +66,7 @@ At around 400 objects the thst quadratic method is faster than the bgi linear ve
 ![dynamic2 thst_vs_bgi](results/benchmark_dynamic_small_bgi_vs_thst.png)
 
 Under 400 objects bgi linear is slightly faster, however this heavily depends on how many objects pass the query test, in the given test case almost all objects pass the intersection test.
-![dynamic2 thst_vs_bgi](results/benchmark_dynamic_small_bgi_vs_thst.png)
+![dynamic2 thst_vs_bgi](results/benchmark_dynamic_vsmall_bgi_vs_thst.png)
 
 ### Legend
 ------
