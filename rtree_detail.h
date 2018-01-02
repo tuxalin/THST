@@ -9,11 +9,6 @@
 
 namespace spatial {
 namespace detail {
-struct dummy_iterator {
-  dummy_iterator &operator++() { return *this; }
-  dummy_iterator &operator*() { return *this; }
-  template <typename T> dummy_iterator &operator=(const T &) { return *this; }
-};
 
 template <class NodeClass, typename CountType> class Stack {
 public:
@@ -74,6 +69,7 @@ template <typename ValueType, class BBoxClass, int max_child_items>
 struct Node {
   typedef Branch<ValueType, BBoxClass, Node> branch_type;
   typedef uint32_t count_type;
+  typedef BBoxClass box_type;
 
   count_type count; ///< Number of branches in the node
   int32_t level;    ///< Leaf is zero, others positive
@@ -127,6 +123,36 @@ struct Node {
     bboxes[index] = bboxes[count];
   }
 }; // Node
+
+struct DummyInsertPredicate {};
+
+template <typename Predicate, class NodeClass>
+struct CheckInsertPredicateHelper {
+
+  inline bool operator()(const Predicate &predicate,
+                         const NodeClass &node) const {
+    for (typename NodeClass::count_type index = 0; index < node.count;
+         ++index) {
+      if (!predicate(node.bboxes[index]))
+        return false;
+    }
+    return true;
+  }
+};
+
+template <class NodeClass>
+struct CheckInsertPredicateHelper<DummyInsertPredicate, NodeClass> {
+  inline bool operator()(const DummyInsertPredicate &predicate,
+                         const NodeClass &node) const {
+    return true;
+  };
+};
+
+template <typename Predicate, class NodeClass>
+inline bool checkInsertPredicate(const Predicate &predicate,
+                                 const NodeClass &node) {
+  return CheckInsertPredicateHelper<Predicate, NodeClass>()(predicate, node);
+}
 
 template <class RTreeClass>
 typename RTreeClass::node_ptr_type &getRootNode(RTreeClass &tree) {

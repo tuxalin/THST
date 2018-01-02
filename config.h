@@ -55,8 +55,13 @@
 
 namespace spatial {
 namespace detail {
-template <bool> struct static_assertion;
+struct dummy_iterator {
+  dummy_iterator &operator++() { return *this; }
+  dummy_iterator &operator*() { return *this; }
+  template <typename T> dummy_iterator &operator=(const T &) { return *this; }
+};
 
+template <bool> struct static_assertion;
 template <> struct static_assertion<true> {};
 } // namespace detail
 } // namespace spatial

@@ -25,10 +25,8 @@ enum RegionType {
 };
 } // namespace spatial
 
-/// Minimal bounding bboxangle (n-dimensional)
-template <typename T, int Dimension, int VolumeMode = box::eNormalVolume,
-          typename RealType = float>
-struct BoundingBox {
+/// Minimal bounding bbox (n-dimensional)
+template <typename T, int Dimension> struct BoundingBox {
   T min[Dimension];
   T max[Dimension];
 
@@ -49,28 +47,23 @@ struct BoundingBox {
 
   void center(T center[Dimension]) const;
 
-  RealType volume() const;
+  template <int VolumeMode, typename RealType> RealType volume() const;
   BoundingBox quad2d(box::RegionType type) const;
-
-  template <int OtherVolumeMode, typename OtherRealType>
-  BoundingBox &operator=(
-      const BoundingBox<T, Dimension, OtherVolumeMode, OtherRealType> &other);
 
 private:
   void checkValid() const;
 
-  RealType normalVolume() const;
+  template <typename RealType> RealType normalVolume() const;
   // The exact volume of the bounding sphere for the given bbox.
-  RealType sphericalVolume() const;
+  template <typename RealType> RealType sphericalVolume() const;
   /// Unit sphere constant for required number of dimensions
-  static RealType unitSphereVolume();
+  template <typename RealType> static RealType unitSphereVolume();
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define BBOX_TEMPLATE                                                          \
-  template <typename T, int Dimension, int VolumeMode, typename RealType>
-#define BBOX_QUAL BoundingBox<T, Dimension, VolumeMode, RealType>
+#define BBOX_TEMPLATE template <typename T, int Dimension>
+#define BBOX_QUAL BoundingBox<T, Dimension>
 
 BBOX_TEMPLATE
 BBOX_QUAL::BoundingBox() {}
@@ -207,11 +200,12 @@ void BBOX_QUAL::center(T center[Dimension]) const {
 }
 
 BBOX_TEMPLATE
+template <int VolumeMode, typename RealType>
 RealType BBOX_QUAL::volume() const {
   if (VolumeMode == spatial::box::eSphericalVolume)
-    return sphericalVolume();
+    return sphericalVolume<RealType>();
 
-  return normalVolume();
+  return normalVolume<RealType>();
 }
 
 BBOX_TEMPLATE
@@ -244,14 +238,6 @@ BBOX_QUAL BBOX_QUAL::quad2d(box::RegionType type) const {
 }
 
 BBOX_TEMPLATE
-template <int OtherVolumeMode, typename OtherRealType>
-BBOX_QUAL &BBOX_QUAL::operator=(
-    const BoundingBox<T, Dimension, OtherVolumeMode, OtherRealType> &other) {
-  set(other.min, other.max);
-  return *this;
-}
-
-BBOX_TEMPLATE
 void BBOX_QUAL::checkValid() const {
 #ifndef NDEBUG
   for (int index = 0; index < Dimension; ++index) {
@@ -261,7 +247,7 @@ void BBOX_QUAL::checkValid() const {
 }
 
 BBOX_TEMPLATE
-RealType BBOX_QUAL::normalVolume() const {
+template <typename RealType> RealType BBOX_QUAL::normalVolume() const {
   RealType volume = (RealType)1;
 
   for (int index = 0; index < Dimension; ++index) {
@@ -274,7 +260,7 @@ RealType BBOX_QUAL::normalVolume() const {
 
 // The exact volume of the bounding sphere for the given bbox
 BBOX_TEMPLATE
-RealType BBOX_QUAL::sphericalVolume() const {
+template <typename RealType> RealType BBOX_QUAL::sphericalVolume() const {
   RealType sumOfSquares = (RealType)0;
 
   for (int index = 0; index < Dimension; ++index) {
@@ -286,16 +272,16 @@ RealType BBOX_QUAL::sphericalVolume() const {
 
   // Pow maybe slow, so test for common dims like 2,3 and just use x*x, x*x*x.
   if (Dimension == 3) {
-    return (radius * radius * radius * unitSphereVolume());
+    return (radius * radius * radius * unitSphereVolume<RealType>());
   } else if (Dimension == 2) {
-    return (radius * radius * unitSphereVolume());
+    return (radius * radius * unitSphereVolume<RealType>());
   } else {
-    return (RealType)(pow(radius, Dimension) * unitSphereVolume());
+    return (RealType)(pow(radius, Dimension) * unitSphereVolume<RealType>());
   }
 }
 
 BBOX_TEMPLATE
-RealType BBOX_QUAL::unitSphereVolume() {
+template <typename RealType> RealType BBOX_QUAL::unitSphereVolume() {
   // Precomputed volumes of the unit spheres for the first few dimensions
   static const float kVolumes[] = {
       0.000000f, 2.000000f, 3.141593f, // Dimension  0,1,2
@@ -310,17 +296,15 @@ RealType BBOX_QUAL::unitSphereVolume() {
   return val;
 } // namespace box
 
-template <typename T, int VolumeMode, typename RealType>
-std::ostream &operator<<(std::ostream &stream,
-                         const BoundingBox<T, 2, VolumeMode, RealType> &bbox) {
+template <typename T>
+std::ostream &operator<<(std::ostream &stream, const BoundingBox<T, 2> &bbox) {
   stream << "min: " << bbox.min[0] << " " << bbox.min[1] << " ";
   stream << "max: " << bbox.max[0] << " " << bbox.max[1];
   return stream;
 }
 
-template <typename T, int VolumeMode, typename RealType>
-std::ostream &operator<<(std::ostream &stream,
-                         const BoundingBox<T, 3, VolumeMode, RealType> &bbox) {
+template <typename T>
+std::ostream &operator<<(std::ostream &stream, const BoundingBox<T, 3> &bbox) {
   stream << "min: " << bbox.min[0] << " " << bbox.min[1] << " " << bbox.min[2]
          << " ";
   stream << "max: " << bbox.max[0] << " " << bbox.max[1] << " " << bbox.max[2]

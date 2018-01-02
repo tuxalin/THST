@@ -9,8 +9,8 @@
 #include "bbox.h"
 #include "config.h"
 #include "indexable.h"
+#include "predicates.h"
 #include "rtree_detail.h"
-
 #include <vector>
 
 namespace spatial {
@@ -27,7 +27,7 @@ template <> struct RealType<double> { typedef double type; };
  @brief Implementation of a custom RTree tree based on the version
  by Greg Douglas at Auran and original algorithm was by Toni Gutman.
         R-Trees provide Log(n) speed rectangular indexing into multi-dimensional
- data.
+ data. Only support the quadratric split heuristic.
 
         It has the following properties:
         - hierarchical, you can add values to the internal branch nodes
@@ -62,13 +62,15 @@ template <typename T,                                            //
           int bbox_volume_mode = box::eNormalVolume,             //
           typename RealType = typename rtree::RealType<T>::type, //
           typename custom_allocator = spatial::heap_allocator<detail::Node<
-              ValueType, BoundingBox<T, Dimension, bbox_volume_mode, RealType>,
-              max_child_items>>>
+              ValueType, BoundingBox<T, Dimension>, max_child_items>>>
 class RTree {
 public:
   typedef RealType real_type;
-  typedef BoundingBox<T, Dimension, bbox_volume_mode, RealType> bbox_type;
+  typedef BoundingBox<T, Dimension> bbox_type;
   typedef custom_allocator allocator_type;
+
+  static const size_t max_items = max_child_items;
+  static const size_t min_items = min_child_items;
 
 private:
   typedef detail::Node<ValueType, bbox_type, max_child_items> node_type;
@@ -177,8 +179,9 @@ public:
     friend class RTree;
   };
 
-  RTree(indexable_getter indexable = indexable_getter());
-  RTree(indexable_getter indexable, const allocator_type &allocator);
+  RTree(indexable_getter indexable = indexable_getter(),
+        const allocator_type &allocator = allocator_type(),
+        bool allocateRoot = true);
   template <typename Iter>
   RTree(Iter first, Iter last,                           //
         indexable_getter indexable = indexable_getter(), //
@@ -187,6 +190,9 @@ public:
 
   template <typename Iter> void insert(Iter first, Iter last);
   void insert(const ValueType &value);
+  /// Insert the value if the predicate condition is true.
+  template <typename Predicate>
+  bool insert(const ValueType &value, const Predicate &predicate);
   void remove(const ValueType &value);
 
   /// Translates the internal bbox by the given point.
@@ -194,45 +200,26 @@ public:
 
   /// Special query to find all within search rectangle using the hierarchical
   /// order.
-  bool hierachical_query(const T min[Dimension], const T max[Dimension]) const;
+  /// @see spatial::SpatialPredicate for available predicates.
+  template <typename Predicate>
+  bool hierachical_query(const Predicate &predicate) const;
   /// \return Returns the number of entries found.
-  template <typename OutIter>
-  size_t hierachical_query(const T min[Dimension], const T max[Dimension],
-                           OutIter out_it) const;
-  size_t hierachical_query(const T min[Dimension], const T max[Dimension],
-                           std::vector<ValueType> &results) const;
+  template <typename Predicate, typename OutIter>
+  size_t hierachical_query(const Predicate &predicate, OutIter out_it) const;
   void setQueryTargetLevel(int level);
 
-  bool contains(const T min[Dimension], const T max[Dimension]) const;
-  template <typename OutIter>
-  size_t contains(const T min[Dimension], const T max[Dimension],
-                  OutIter out_it) const;
-  size_t contains(const T min[Dimension], const T max[Dimension],
-                  std::vector<ValueType> &results) const;
-  bool overlaps(const T min[Dimension], const T max[Dimension]) const;
-  template <typename OutIter>
-  size_t overlaps(const T min[Dimension], const T max[Dimension],
-                  OutIter out_it) const;
-  size_t overlaps(const T min[Dimension], const T max[Dimension],
-                  std::vector<ValueType> &results) const;
-  ///@note To be used with points, as it only check the min point of the
-  /// bounding boxes of the leaves.
-  bool within(const T min[Dimension], const T max[Dimension]) const;
-  template <typename OutIter>
-  size_t within(const T min[Dimension], const T max[Dimension],
-                OutIter out_it) const;
-  size_t within(const T min[Dimension], const T max[Dimension],
-                std::vector<ValueType> &results) const;
+  /// @see spatial::SpatialPredicate for available predicates.
+  template <typename Predicate> bool query(const Predicate &predicate) const;
+  template <typename Predicate, typename OutIter>
+  size_t query(const Predicate &predicate, OutIter out_it) const;
 
   /// Performs a nearest aproximation search.
   /// @note Only for 2D space.
   template <typename OutIter>
   size_t nearest(const T point[2], T radius, OutIter out_it) const;
-  size_t nearest(const T point[2], T radius,
-                 std::vector<ValueType> &results) const;
 
   /// Remove all entries from tree
-  void clear();
+  void clear(bool recursiveCleanup = true);
   /// Count the data elements in this container.
   size_t count() const;
   /// Returns the estimated internal node count for the given number of elements
@@ -240,9 +227,9 @@ public:
   /// Returns the estimated branch count for the given number of elements
   static size_t branchCount(size_t numberOfItems);
   /// Returns the number of levels(height) of the tree.
-  int levels() const;
+  size_t levels() const;
   /// Returns the estimated depth for the given number of elements
-  static int levels(size_t numberOfItems);
+  static double levels(size_t numberOfItems);
   /// Returns the bbox of the root node.
   bbox_type bbox() const;
   /// Returns the custom allocator
@@ -260,8 +247,6 @@ public:
   size_t bytes(bool estimate = true) const;
 
 private:
-  enum QueryMode { eContains = 0, eOverlaps, eWithin };
-
   /// Variables for finding a split partition
   struct BranchVars {
     branch_type branches[max_child_items + 1];
@@ -270,10 +255,7 @@ private:
   };
 
   struct PartitionVars : BranchVars {
-    enum {
-      // indicates that positio
-      ePartitionUnused = -1
-    };
+    enum { ePartitionUnused = -1 };
 
     int partitions[max_child_items + 1];
     count_type count[2];
@@ -313,9 +295,13 @@ private:
     }
   };
 
-  bool insertImpl(const branch_type &branch, int level);
-  bool insertRec(const branch_type &branch, node_type &node,
-                 node_ptr_type &newNode, int level);
+  template <typename Predicate>
+  bool insertImpl(const branch_type &branch, const Predicate &predicate,
+                  int level);
+  template <typename Predicate>
+  bool insertRec(const branch_type &branch, const Predicate &predicate,
+                 node_type &node, node_ptr_type &newNode, bool &added,
+                 int level);
 
   count_type pickBranch(const bbox_type &bbox, const node_type &node) const;
   void getBranches(const node_type &node, const branch_type &branch,
@@ -337,13 +323,13 @@ private:
                  node_ptr_type node, std::vector<node_ptr_type> &reInsertList);
   void clearRec(const node_ptr_type node);
 
-  template <typename OutIter>
-  void queryRec(node_ptr_type node, const bbox_type &bbox, size_t &foundCount,
-                OutIter out_it) const;
+  template <typename Predicate, typename OutIter>
+  void queryHierachicalRec(node_ptr_type node, const Predicate &predicate,
+                           size_t &foundCount, OutIter out_it) const;
 
-  template <QueryMode Mode, typename OutIter>
-  void queryCustomRec(node_ptr_type node, const bbox_type &bbox,
-                      size_t &foundCount, OutIter out_it) const;
+  template <typename Predicate, typename OutIter>
+  void queryRec(node_ptr_type node, const Predicate &predicate,
+                size_t &foundCount, OutIter out_it) const;
 
   template <typename OutIter>
   void nearestRec(node_ptr_type node, const T point[2], T radius,
@@ -385,24 +371,15 @@ private:
         indexable_getter, bbox_volume_mode, RealType, custom_allocator>
 
 TREE_TEMPLATE
-TREE_QUAL::RTree(indexable_getter indexable /*= indexable_getter()*/)
-    : m_indexable(indexable), m_allocator(), m_count(0), m_queryTargetLevel(0) {
-  SPATIAL_TREE_STATIC_ASSERT((max_child_items > min_child_items),
-                             "Invalid child size!");
-  SPATIAL_TREE_STATIC_ASSERT((min_child_items > 0), "Invalid child size!");
-
-  m_root = m_allocator.allocate(0);
-}
-
-TREE_TEMPLATE
-TREE_QUAL::RTree(indexable_getter indexable, const allocator_type &allocator)
+TREE_QUAL::RTree(indexable_getter indexable /*= indexable_getter()*/,
+                 const allocator_type &allocator /*= allocator_type()*/,
+                 bool allocateRoot /*= true*/)
     : m_indexable(indexable), m_allocator(allocator), m_count(0),
-      m_queryTargetLevel(0) {
+      m_queryTargetLevel(0),
+      m_root(allocateRoot ? m_allocator.allocate(0) : NULL) {
   SPATIAL_TREE_STATIC_ASSERT((max_child_items > min_child_items),
                              "Invalid child size!");
   SPATIAL_TREE_STATIC_ASSERT((min_child_items > 0), "Invalid child size!");
-
-  m_root = m_allocator.allocate(0);
 }
 
 TREE_TEMPLATE
@@ -417,7 +394,7 @@ TREE_QUAL::RTree(Iter first, Iter last,
   SPATIAL_TREE_STATIC_ASSERT((min_child_items > 0), "Invalid child size!");
 
   m_root = m_allocator.allocate(0);
-
+  // TODO: use packing algorithm
   insert(first, last);
 }
 
@@ -428,9 +405,18 @@ TREE_QUAL::~RTree() {
 
 TREE_TEMPLATE
 template <typename Iter> void TREE_QUAL::insert(Iter first, Iter last) {
-  // TODO: use packing algorithm
+  assert(m_root);
+
+  branch_type branch;
+  branch.child = NULL;
+
   for (Iter it = first; it != last; ++it) {
-    insert(*it);
+    const ValueType &value = *it;
+    branch.value = value;
+    branch.bbox.set(m_indexable.min(value), m_indexable.max(value));
+    insertImpl(branch, spatial::detail::DummyInsertPredicate(), 0);
+
+    ++m_count;
     if (allocator_type::is_overflowable && m_allocator.overflowed())
       break;
   }
@@ -438,143 +424,76 @@ template <typename Iter> void TREE_QUAL::insert(Iter first, Iter last) {
 
 TREE_TEMPLATE
 void TREE_QUAL::insert(const ValueType &value) {
+  assert(m_root);
+
   branch_type branch;
   branch.value = value;
   branch.child = NULL;
   branch.bbox.set(m_indexable.min(value), m_indexable.max(value));
-  insertImpl(branch, 0);
+  insertImpl(branch, spatial::detail::DummyInsertPredicate(), 0);
 
   ++m_count;
 }
 
 TREE_TEMPLATE
+template <typename Predicate>
+bool TREE_QUAL::insert(const ValueType &value, const Predicate &predicate) {
+  assert(m_root);
+
+  branch_type branch;
+  branch.value = value;
+  branch.child = NULL;
+  branch.bbox.set(m_indexable.min(value), m_indexable.max(value));
+  bool success = insertImpl(branch, predicate, 0);
+  if (success)
+    ++m_count;
+
+  return success;
+}
+
+TREE_TEMPLATE
 void TREE_QUAL::translate(const T point[Dimension]) {
   assert(m_root);
+
   translateRec(*m_root, point);
 }
 
 TREE_TEMPLATE
 void TREE_QUAL::remove(const ValueType &value) {
+  assert(m_root);
+
   const bbox_type bbox(m_indexable.min(value), m_indexable.max(value));
   if (removeImpl(bbox, value))
     --m_count;
 }
 
 TREE_TEMPLATE
-bool TREE_QUAL::hierachical_query(const T min[Dimension],
-                                  const T max[Dimension]) const {
-  return hierachical_query(min, max, spatial::detail::dummy_iterator()) > 0;
+template <typename Predicate>
+bool TREE_QUAL::hierachical_query(const Predicate &predicate) const {
+  return hierachical_query(predicate, spatial::detail::dummy_iterator()) > 0;
 }
 
 TREE_TEMPLATE
-template <typename OutIter>
-size_t TREE_QUAL::hierachical_query(const T min[Dimension],
-                                    const T max[Dimension],
+template <typename Predicate, typename OutIter>
+size_t TREE_QUAL::hierachical_query(const Predicate &predicate,
                                     OutIter out_it) const {
-  const bbox_type bbox(min, max);
-
   size_t foundCount = 0;
-  queryRec(m_root, bbox, foundCount, out_it);
-
+  queryHierachicalRec(m_root, predicate, foundCount, out_it);
   return foundCount;
 }
 
 TREE_TEMPLATE
-size_t TREE_QUAL::hierachical_query(const T min[Dimension],
-                                    const T max[Dimension],
-                                    std::vector<ValueType> &results) const {
-  const bbox_type bbox(min, max);
+template <typename Predicate>
+bool TREE_QUAL::query(const Predicate &predicate) const {
+  return query(predicate, spatial::detail::dummy_iterator()) > 0;
+}
+
+TREE_TEMPLATE
+template <typename Predicate, typename OutIter>
+size_t TREE_QUAL::query(const Predicate &predicate, OutIter out_it) const {
 
   size_t foundCount = 0;
-  queryRec(m_root, bbox, foundCount, std::back_inserter(results));
-
-  return foundCount;
-}
-
-TREE_TEMPLATE
-bool TREE_QUAL::contains(const T min[Dimension], const T max[Dimension]) const {
-  return contains(min, max, spatial::detail::dummy_iterator()) > 0;
-}
-
-TREE_TEMPLATE
-template <typename OutIter>
-size_t TREE_QUAL::contains(const T min[Dimension], const T max[Dimension],
-                           OutIter out_it) const {
-  const bbox_type bbox(min, max);
-
-  size_t foundCount = 0;
-  queryCustomRec<eContains>(m_root, bbox, foundCount, out_it);
-
-  return foundCount;
-}
-
-TREE_TEMPLATE
-size_t TREE_QUAL::contains(const T min[Dimension], const T max[Dimension],
-                           std::vector<ValueType> &results) const {
-  const bbox_type bbox(min, max);
-
-  size_t foundCount = 0;
-  queryCustomRec<eContains>(m_root, bbox, foundCount,
-                            std::back_inserter(results));
-
-  return foundCount;
-}
-
-TREE_TEMPLATE
-bool TREE_QUAL::overlaps(const T min[Dimension], const T max[Dimension]) const {
-  return overlaps(min, max, spatial::detail::dummy_iterator()) > 0;
-}
-
-TREE_TEMPLATE
-template <typename OutIter>
-size_t TREE_QUAL::overlaps(const T min[Dimension], const T max[Dimension],
-                           OutIter out_it) const {
-  const bbox_type bbox(min, max);
-
-  size_t foundCount = 0;
-  queryCustomRec<eOverlaps>(m_root, bbox, foundCount, out_it);
-
-  return foundCount;
-}
-
-TREE_TEMPLATE
-size_t TREE_QUAL::overlaps(const T min[Dimension], const T max[Dimension],
-                           std::vector<ValueType> &results) const {
-  const bbox_type bbox(min, max);
-
-  size_t foundCount = 0;
-  queryCustomRec<eOverlaps>(m_root, bbox, foundCount,
-                            std::back_inserter(results));
-
-  return foundCount;
-}
-
-TREE_TEMPLATE
-bool TREE_QUAL::within(const T min[Dimension], const T max[Dimension]) const {
-  return within(min, max, spatial::detail::dummy_iterator()) > 0;
-}
-
-TREE_TEMPLATE
-template <typename OutIter>
-size_t TREE_QUAL::within(const T min[Dimension], const T max[Dimension],
-                         OutIter out_it) const {
-  const bbox_type bbox(min, max);
-
-  size_t foundCount = 0;
-  queryCustomRec<eWithin>(m_root, bbox, foundCount, out_it);
-
-  return foundCount;
-}
-
-TREE_TEMPLATE
-size_t TREE_QUAL::within(const T min[Dimension], const T max[Dimension],
-                         std::vector<ValueType> &results) const {
-  const bbox_type bbox(min, max);
-
-  size_t foundCount = 0;
-  queryCustomRec<eWithin>(m_root, bbox, foundCount,
-                          std::back_inserter(results));
-
+  queryRec(m_root, predicate, foundCount, out_it);
   return foundCount;
 }
 
@@ -583,15 +502,6 @@ template <typename OutIter>
 size_t TREE_QUAL::nearest(const T point[2], T radius, OutIter out_it) const {
   size_t foundCount = 0;
   nearestRec(m_root, point, radius, foundCount, out_it);
-
-  return foundCount;
-}
-
-TREE_TEMPLATE
-size_t TREE_QUAL::nearest(const T point[2], T radius,
-                          std::vector<ValueType> &results) const {
-  size_t foundCount = 0;
-  nearestRec(m_root, point, radius, foundCount, std::back_inserter(results));
 
   return foundCount;
 }
@@ -628,14 +538,14 @@ size_t TREE_QUAL::bytes(bool estimate /*= true*/) const {
 
 TREE_TEMPLATE
 size_t TREE_QUAL::nodeCount(size_t numberOfItems) {
-  const float k = min_child_items;
-  const float invK1 = 1.f / (k - 1.f);
+  const double k = min_child_items;
+  const double invK1 = 1.0 / (k - 1.0);
 
-  const int depth = levels(numberOfItems);
+  const double depth = levels(numberOfItems);
   // perfectly balanced k-ary tree formula
-  float count = std::pow(k, depth + 1.f) - 1;
+  double count = std::pow(k, depth + 1.0) - 1;
   count *= invK1;
-  return count;
+  return std::max(count * 0.5, 1.0);
 }
 
 TREE_TEMPLATE
@@ -646,16 +556,16 @@ size_t TREE_QUAL::branchCount(size_t numberOfItems) {
 }
 
 TREE_TEMPLATE
-int TREE_QUAL::levels() const {
+size_t TREE_QUAL::levels() const {
   assert(m_root);
   return m_root->level;
 }
 
 TREE_TEMPLATE
-int TREE_QUAL::levels(size_t numberOfItems) {
-  static float invLog = 1 / logf(min_child_items);
-  const float depth = logf(numberOfItems) * invLog - 1;
-  return floorf(depth);
+double TREE_QUAL::levels(size_t numberOfItems) {
+  static const double invLog = 1 / std::log(min_child_items);
+  const double depth = std::log(numberOfItems) * invLog - 1;
+  return depth;
 }
 
 TREE_TEMPLATE
@@ -712,9 +622,8 @@ size_t TREE_QUAL::countImpl(const node_type &node) const {
 }
 
 TREE_TEMPLATE
-void TREE_QUAL::clear() {
-  // Delete all existing nodes
-  if (!m_allocator.overflowed())
+void TREE_QUAL::clear(bool recursiveCleanup /*= true*/) {
+  if (recursiveCleanup && m_root && !m_allocator.overflowed())
     clearRec(m_root);
 
   m_root = m_allocator.allocate(0);
@@ -743,9 +652,13 @@ void TREE_QUAL::clearRec(const node_ptr_type node) {
 // The level argument specifies the number of steps up from the leaf
 // level to insert; e.g. a data rectangle goes in at level = 0.
 TREE_TEMPLATE
-bool TREE_QUAL::insertRec(const branch_type &branch, node_type &node,
-                          node_ptr_type &newNode, int level) {
+template <typename Predicate>
+bool TREE_QUAL::insertRec(const branch_type &branch, const Predicate &predicate,
+                          node_type &node, node_ptr_type &newNode, bool &added,
+                          int level) {
   assert(level >= 0 && level <= node.level);
+
+  // TODO: profile and test a non-recursive version
 
   // recurse until we reach the correct level for the new record. data records
   // will always be called with level == 0 (leaf)
@@ -758,13 +671,14 @@ bool TREE_QUAL::insertRec(const branch_type &branch, node_type &node,
 
     // recursively insert this record into the picked branch
     assert(node.children[index]);
-    bool childWasSplit =
-        insertRec(branch, *node.children[index], otherNode, level);
+    bool childWasSplit = insertRec(branch, predicate, *node.children[index],
+                                   otherNode, added, level);
 
     if (!childWasSplit) {
       // Child was not split. Merge the bounding box of the new record with the
       // existing bounding box
-      node.bboxes[index] = branch.bbox.extended(node.bboxes[index]);
+      if (added)
+        node.bboxes[index] = branch.bbox.extended(node.bboxes[index]);
       return false;
     } else if (otherNode) {
       // Child was split. The old branches are now re-partitioned to two nodes
@@ -779,9 +693,15 @@ bool TREE_QUAL::insertRec(const branch_type &branch, node_type &node,
       return addBranch(branch, node, &newNode);
     } else if (allocator_type::is_overflowable) {
       // overflow error
-      return true;
+      return false;
     }
   } else if (node.level == level) {
+    // Check if we should add the branch
+    if (!detail::checkInsertPredicate(predicate, node)) {
+      added = false;
+      return false;
+    }
+
     // We have reached level for insertion. Add bbox, split if necessary
     return addBranch(branch, node, &newNode);
   }
@@ -797,9 +717,10 @@ bool TREE_QUAL::insertRec(const branch_type &branch, node_type &node,
 // The level argument specifies the number of steps up from the leaf
 // level to insert; e.g. a data rectangle goes in at level = 0.
 // insertRec does the recursion.
-//
 TREE_TEMPLATE
-bool TREE_QUAL::insertImpl(const branch_type &branch, int level) {
+template <typename Predicate>
+bool TREE_QUAL::insertImpl(const branch_type &branch,
+                           const Predicate &predicate, int level) {
   assert(m_root);
   assert(level >= 0 && level <= m_root->level);
 #ifndef NDEBUG
@@ -808,14 +729,10 @@ bool TREE_QUAL::insertImpl(const branch_type &branch, int level) {
   }
 #endif
 
-  if (allocator_type::is_overflowable && m_allocator.overflowed()) {
-    return false;
-  }
-
   node_ptr_type newNode = NULL;
-  // TODO: profile and test a non-recursion variant
-  if (insertRec(branch, *m_root, newNode, level)) // Root split
-  {
+  bool added = true;
+  if (insertRec(branch, predicate, *m_root, newNode, added, level)) {
+    // Root split
     if (allocator_type::is_overflowable && newNode == NULL) // overflow
       return false;
 
@@ -834,10 +751,8 @@ bool TREE_QUAL::insertImpl(const branch_type &branch, int level) {
     addBranch(branch, *newRoot, NULL);
     // set the new root as the root node
     m_root = newRoot;
-
-    return true;
   }
-  return false;
+  return added;
 }
 
 // Add a branch to a node.  Split the node if necessary.
@@ -875,9 +790,10 @@ TREE_QUAL::pickBranch(const bbox_type &bbox, const node_type &node) const {
 
   for (count_type index = 0; index < node.count; ++index) {
     const bbox_type &curbbox_type = node.bboxes[index];
-    area = curbbox_type.volume();
+    area = curbbox_type.template volume<bbox_volume_mode, RealType>();
     tempbbox_type = bbox.extended(curbbox_type);
-    increase = tempbbox_type.volume() - area;
+    increase =
+        tempbbox_type.template volume<bbox_volume_mode, RealType>() - area;
     if ((increase < bestIncr) || firstTime) {
       best = index;
       bestArea = area;
@@ -947,7 +863,8 @@ void TREE_QUAL::getBranches(const node_type &node, const branch_type &branch,
   for (int index = 1; index < max_child_items + 1; ++index) {
     branchVars.coverSplit.extend(branchVars.branches[index].bbox);
   }
-  branchVars.coverSplitArea = branchVars.coverSplit.volume();
+  branchVars.coverSplitArea =
+      branchVars.coverSplit.template volume<bbox_volume_mode, RealType>();
 }
 
 // Method #0 for choosing a partition:
@@ -980,8 +897,10 @@ void TREE_QUAL::choosePartition(PartitionVars &partitionVars) const {
       const bbox_type &curbbox_type = partitionVars.branches[index].bbox;
       bbox_type bbox0 = curbbox_type.extended(partitionVars.cover[0]);
       bbox_type bbox1 = curbbox_type.extended(partitionVars.cover[1]);
-      real_type growth0 = bbox0.volume() - partitionVars.area[0];
-      real_type growth1 = bbox1.volume() - partitionVars.area[1];
+      real_type growth0 = bbox0.template volume<bbox_volume_mode, RealType>() -
+                          partitionVars.area[0];
+      real_type growth1 = bbox1.template volume<bbox_volume_mode, RealType>() -
+                          partitionVars.area[1];
       real_type diff = growth1 - growth0;
       if (diff >= 0) {
         group = 0;
@@ -1048,7 +967,8 @@ void TREE_QUAL::pickSeeds(PartitionVars &partitionVars) const {
   real_type area[max_child_items + 1];
 
   for (size_t index = 0; index < partitionVars.maxFill(); ++index) {
-    area[index] = partitionVars.branches[index].bbox.volume();
+    area[index] = partitionVars.branches[index]
+                      .bbox.template volume<bbox_volume_mode, RealType>();
   }
 
   worst = -partitionVars.coverSplitArea - 1;
@@ -1057,7 +977,8 @@ void TREE_QUAL::pickSeeds(PartitionVars &partitionVars) const {
          ++indexB) {
       bbox_type onebbox_type = partitionVars.branches[indexA].bbox.extended(
           partitionVars.branches[indexB].bbox);
-      waste = onebbox_type.volume() - area[indexA] - area[indexB];
+      waste = onebbox_type.template volume<bbox_volume_mode, RealType>() -
+              area[indexA] - area[indexB];
       if (waste > worst) {
         worst = waste;
         seed0 = indexA;
@@ -1087,7 +1008,8 @@ void TREE_QUAL::classify(count_type index, int group,
   }
 
   // Calculate volume of combined bbox
-  partitionVars.area[group] = partitionVars.cover[group].volume();
+  partitionVars.area[group] =
+      partitionVars.cover[group].template volume<bbox_volume_mode, RealType>();
 
   ++partitionVars.count[group];
 }
@@ -1179,19 +1101,20 @@ bool TREE_QUAL::removeRec(const bbox_type &bbox, const ValueType &value,
 }
 
 // Search in an index tree or subtree for all data retangles that overlap the
-// argument rectangle and stop at
-// first node that is fully containted by the bbox.
+// argument rectangle and stop at first node that is fully containted by the
+// bbox.
 TREE_TEMPLATE
-template <typename OutIter>
-void TREE_QUAL::queryRec(node_ptr_type node, const bbox_type &bbox,
-                         size_t &foundCount, OutIter it) const {
+template <typename Predicate, typename OutIter>
+void TREE_QUAL::queryHierachicalRec(node_ptr_type node,
+                                    const Predicate &predicate,
+                                    size_t &foundCount, OutIter it) const {
   assert(node);
   assert(node->level >= 0);
 
   if (node->level <= m_queryTargetLevel) {
     // This is a target or lower level node
     for (count_type index = 0; index < node->count; ++index) {
-      if (bbox.overlaps(node->bboxes[index])) {
+      if (predicate(node->bboxes[index])) {
         *it = node->values[index];
         ++it;
         ++foundCount;
@@ -1201,39 +1124,27 @@ void TREE_QUAL::queryRec(node_ptr_type node, const bbox_type &bbox,
     for (count_type index = 0; index < node->count; ++index) {
       const bbox_type &nodeBBox = node->bboxes[index];
       // Branch is fully contained, dont search further
-      if (bbox.contains(nodeBBox)) {
+      if (predicate.bbox.contains(nodeBBox)) {
         *it = node->values[index];
         ++it;
         ++foundCount;
-      } else if (bbox.overlaps(nodeBBox)) {
-        queryRec(node->children[index], bbox, foundCount, it);
+      } else if (predicate.bbox.overlaps(nodeBBox)) {
+        queryHierachicalRec(node->children[index], predicate, foundCount, it);
       }
     }
   }
 }
 
 TREE_TEMPLATE
-template <typename TREE_QUAL::QueryMode Mode, typename OutIter>
-void TREE_QUAL::queryCustomRec(node_ptr_type node, const bbox_type &bbox,
-                               size_t &foundCount, OutIter it) const {
+template <typename Predicate, typename OutIter>
+void TREE_QUAL::queryRec(node_ptr_type node, const Predicate &predicate,
+                         size_t &foundCount, OutIter it) const {
   assert(node);
   assert(node->level >= 0);
 
   if (node->isLeaf()) {
-    // This is a target or lower level node
     for (count_type index = 0; index < node->count; ++index) {
-      bool visible;
-      switch (Mode) {
-      case eOverlaps:
-        visible = bbox.overlaps(node->bboxes[index]);
-        break;
-      case eContains:
-        visible = bbox.contains(node->bboxes[index]);
-        break;
-      case eWithin:
-        visible = bbox.contains(node->bboxes[index].min);
-      }
-      if (visible) {
+      if (predicate(node->bboxes[index])) {
         *it = node->values[index];
         ++it;
         ++foundCount;
@@ -1243,8 +1154,8 @@ void TREE_QUAL::queryCustomRec(node_ptr_type node, const bbox_type &bbox,
     for (count_type index = 0; index < node->count; ++index) {
       const bbox_type &nodeBBox = node->bboxes[index];
 
-      if (bbox.overlaps(nodeBBox)) {
-        queryCustomRec<Mode>(node->children[index], bbox, foundCount, it);
+      if (predicate.bbox.overlaps(nodeBBox)) {
+        queryRec(node->children[index], predicate, foundCount, it);
       }
     }
   }
