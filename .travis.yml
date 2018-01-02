@@ -81,7 +81,7 @@ before_script:
   - (mkdir build && cd build && cmake ..)
   - cd ../../
   - pwd
-  - ../benchmark/bin/ci/before_install.sh
+  - ./benchmark/bin/ci/before_install.sh
 script:
   - cd test/build
   - ls
