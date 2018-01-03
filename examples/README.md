@@ -6,7 +6,7 @@
 Consider the following example, for simplicity it's in 2D space.
 ![rtree hierarchy](hierarchy.png)
 
-The leaves represent draw calls(eg. game objects) in world coordinates, they can be represented in the tree values by some IDs or index in some arrays.
+The leaves represent draw calls(eg. game objects) in world coordinates, they can be represented in the tree values by some IDs or indices in some arrays.
 
 #### Spatial order
 Insert the objects in any order, after a leaf traversal(via the leaf iterator) must be done which will give the spatial order of the objects:
@@ -25,12 +25,12 @@ NOTE: It's required that all calls must use the same primitive type.
 This way the interleaved data(or indices if using an index buffer) will be spatially ordered.
 
 #### Depth nodes
-The final step is to do a depth traversal(via the depth and node iterators) starting from level 1 downard.
+The final step is to do a depth traversal(via the depth and node iterators) starting from the penultimate level towards root level(eg. zero).
 For each depth node access it's children draw calls and append new ones, where the start is the minimum of it's children and count is the sum:
 
 ![spatial depth](spatial_depth.png)
 
-NOTE: The traversal is done in reverse, from level 1 towards zero.
+NOTE: The traversal is done in reverse, from the level one downards, in left to right order.
 
 We also set the new values(eg. an ID or address) of depth nodes which will link to the new draw calls.
 
