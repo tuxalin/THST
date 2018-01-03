@@ -16,7 +16,7 @@ Insert the objects in any order, after a leaf traversal(via the leaf iterator) m
 NOTE: The spatial tree has a translate method which will be applied to the boxes of all the nodes and leaves.
 
 #### Buffer spatial ordered layout
-Afterwards using the spatial order we insert the object's data in a vertex buffer(if applicable, also to an index buffer or more vertex buffers) and save the draw call start and count for each of the objects:
+Afterwards using the spatial order we insert the object's data in a vertex buffer(if applicable, also to an index buffer or more vertex buffers) and save the draw call start and count for the objects:
 
 ![spatial calls](spatial_calls.png)
 
@@ -35,10 +35,11 @@ NOTE: The traversal is done in reverse, from level 1 towards zero.
 We also set the new values(eg. an ID or address) of depth nodes which will link to the new draw calls.
 
 #### Hierachical query
-When using hierachical query every nodes that are fully contained will prune any other branches and return only the depth node.
+When using hierachical query the values/objects that are fully contained by the query box will be returned and the other branches pruned.
 
 ![spatial query](spatial_query.png)
 
 NOTE: The quad tree variant has a containment factor, if the number of nodes contained exceed the given percentage then the depth node is selected.
 
-In the above example the query would return the draw calls for: N, K and M.
+In the above example the query would return the draw calls for: Q(composed of F and G), E, K and M.
+Note that further optimizations can be done for adjiacent nodes(as they can be merged).
