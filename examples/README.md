@@ -25,7 +25,7 @@ NOTE: It's required that all calls must use the same primitive type.
 This way the interleaved data(or indices if using an index buffer) will be spatially ordered.
 
 #### Depth nodes
-The final step is to do a depth traversal(via the depth and node iterators) starting from the penultimate level towards root level(eg. zero).
+The final step is to do a depth traversal(via the depth and node iterators) starting from the penultimate level towards the root level(eg. zero).
 For each depth node access it's children draw calls and append new ones, where the start is the minimum of it's children and count is the sum:
 
 ![spatial depth](spatial_depth.png)

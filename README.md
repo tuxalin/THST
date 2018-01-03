@@ -16,6 +16,7 @@ Some of the currently implemented features are:
 - estimation for node count given a number of items
 - tagging of internal nodes
 - the spatial trees have almost identical interfaces
+- lightweight, resulting in faster compile times compared to boost(eg. benchmark compilation: 35,3 sec vs 1,4 sec)
 - C++03 support
 	
 ## Installation
