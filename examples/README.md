@@ -10,12 +10,14 @@ The leaves represent draw calls(eg. game objects) in world coordinates, they can
 
 #### Spatial order
 Insert the objects in any order, after a leaf traversal(via the leaf iterator) must be done which will give the spatial order of the objects:
+
 ![spatial order](spatial_order.png)
 
 NOTE: The spatial tree has a translate method which will be applied to the boxes of all the nodes and leaves.
 
 #### Buffer spatial ordered layout
 Afterwards using the spatial order we insert the object's data in a vertex buffer(if applicable, also to an index buffer or more vertex buffers) and save the draw call start and count for each of the objects:
+
 ![spatial calls](spatial_calls.png)
 
 NOTE: It's required that all calls must use the same primitive type.
@@ -25,6 +27,7 @@ This way the interleaved data(or indices if using an index buffer) will be spati
 #### Depth nodes
 The final step is to do a depth traversal(via the depth and node iterators) starting from level 1 downard.
 For each depth node access it's children draw calls and append new ones, where the start is the minimum of it's children and count is the sum:
+
 ![spatial depth](spatial_depth.png)
 
 NOTE: The traversal is done in reverse, from level 1 towards zero.
@@ -33,6 +36,7 @@ We also set the new values(eg. an ID or address) of depth nodes which will link 
 
 #### Hierachical query
 When using hierachical query every nodes that are fully contained will prune any other branches and return only the depth node.
+
 ![spatial query](spatial_query.png)
 
 NOTE: The quad tree variant has a containment factor, if the number of nodes contained exceed the given percentage then the depth node is selected.
