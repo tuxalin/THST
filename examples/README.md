@@ -1,7 +1,7 @@
 
 ## Usage examples
 
-### Batching draw calls using an hierachical structure
+### Batching draw calls using hierarchical trees
 
 Consider the following example, for simplicity it's in 2D space.
 ![rtree hierarchy](hierarchy.png)
