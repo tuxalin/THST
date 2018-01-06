@@ -6,7 +6,7 @@ mkdir build && cd build && cmake ..
 make
 echo "Current folder"
 ls
-./test
+./thst_test
 cd ../../
 
 # Builds and runs spatial_index_benchmark
