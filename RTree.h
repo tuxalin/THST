@@ -61,7 +61,7 @@ template <typename T,                                            //
           typename indexable_getter = Indexable<T, ValueType>,   //
           int bbox_volume_mode = box::eNormalVolume,             //
           typename RealType = typename rtree::RealType<T>::type, //
-          typename custom_allocator = spatial::heap_allocator<detail::Node<
+          typename custom_allocator = spatial::allocator<detail::Node<
               ValueType, BoundingBox<T, Dimension>, max_child_items>>>
 class RTree {
 public:
@@ -392,7 +392,7 @@ TREE_QUAL::RTree(indexable_getter indexable /*= indexable_getter()*/,
                  bool allocateRoot /*= true*/)
     : m_indexable(indexable), m_allocator(allocator), m_count(0),
       m_queryTargetLevel(0),
-      m_root(allocateRoot ? m_allocator.allocate(0) : NULL) {
+      m_root(allocateRoot ? detail::allocate(m_allocator, 0) : NULL) {
   SPATIAL_TREE_STATIC_ASSERT((max_child_items > min_child_items),
                              "Invalid child size!");
   SPATIAL_TREE_STATIC_ASSERT((min_child_items > 0), "Invalid child size!");
@@ -409,7 +409,7 @@ TREE_QUAL::RTree(Iter first, Iter last,
                              "Invalid child size!");
   SPATIAL_TREE_STATIC_ASSERT((min_child_items > 0), "Invalid child size!");
 
-  m_root = m_allocator.allocate(0);
+  m_root = detail::allocate(m_allocator, 0);
   // TODO: use packing algorithm
   insert(first, last);
 }
@@ -418,7 +418,7 @@ TREE_TEMPLATE
 TREE_QUAL::RTree(const RTree &src)
     : m_indexable(src.m_indexable), m_allocator(src.m_allocator),
       m_count(src.m_count), m_queryTargetLevel(src.m_queryTargetLevel),
-      m_root(m_allocator.allocate(0)) {
+      m_root(detail::allocate(m_allocator, 0)) {
   copyRec(src.m_root, m_root);
 }
 
@@ -429,7 +429,11 @@ TREE_QUAL::RTree(RTree &&src) : m_root(NULL) { swap(src); }
 
 TREE_TEMPLATE
 TREE_QUAL::~RTree() {
+#if SPATIAL_TREE_ALLOCATOR == SPATIAL_TREE_DEFAULT_ALLOCATOR
   if (m_root && !m_allocator.overflowed())
+#else
+  if (m_root)
+#endif
     clearRec(m_root);
 }
 
@@ -484,8 +488,10 @@ template <typename Iter> void TREE_QUAL::insert(Iter first, Iter last) {
     insertImpl(branch, spatial::detail::DummyInsertPredicate(), 0);
 
     ++m_count;
+#if SPATIAL_TREE_ALLOCATOR == SPATIAL_TREE_DEFAULT_ALLOCATOR
     if (allocator_type::is_overflowable && m_allocator.overflowed())
       break;
+#endif
   }
 }
 
@@ -690,10 +696,16 @@ size_t TREE_QUAL::countImpl(const node_type &node) const {
 
 TREE_TEMPLATE
 void TREE_QUAL::clear(bool recursiveCleanup /*= true*/) {
-  if (recursiveCleanup && m_root && !m_allocator.overflowed())
+
+#if SPATIAL_TREE_ALLOCATOR == SPATIAL_TREE_DEFAULT_ALLOCATOR
+  if (allocator_type::is_overflowable)
+    recursiveCleanup &= !m_allocator.overflowed();
+#endif
+
+  if (recursiveCleanup && m_root)
     clearRec(m_root);
 
-  m_root = m_allocator.allocate(0);
+  m_root = detail::allocate(m_allocator, 0);
   m_count = 0;
 }
 
@@ -708,7 +720,7 @@ void TREE_QUAL::clearRec(const node_ptr_type node) {
       clearRec(node->children[index]);
     }
   }
-  m_allocator.deallocate(node);
+  detail::deallocate(m_allocator, node);
 }
 
 // Inserts a new data rectangle into the index structure.
@@ -758,10 +770,13 @@ bool TREE_QUAL::insertRec(const branch_type &branch, const Predicate &predicate,
       // The old node is already a child of node. Now add the newly-created
       // node to node as well. node might be split because of that.
       return addBranch(branch, node, &newNode);
-    } else if (allocator_type::is_overflowable) {
+    }
+#if SPATIAL_TREE_ALLOCATOR == SPATIAL_TREE_DEFAULT_ALLOCATOR
+    else if (allocator_type::is_overflowable) {
       // overflow error
       return false;
     }
+#endif
   } else if (node.level == level) {
     // Check if we should add the branch
     if (!detail::checkInsertPredicate(predicate, node)) {
@@ -798,13 +813,16 @@ bool TREE_QUAL::insertImpl(const branch_type &branch,
 
   node_ptr_type newNode = NULL;
   bool added = true;
+
+  // Check if root was split
   if (insertRec(branch, predicate, *m_root, newNode, added, level)) {
-    // Root split
+#if SPATIAL_TREE_ALLOCATOR == SPATIAL_TREE_DEFAULT_ALLOCATOR
     if (allocator_type::is_overflowable && newNode == NULL) // overflow
       return false;
+#endif
 
     // Grow tree taller and new root
-    node_ptr_type newRoot = m_allocator.allocate(m_root->level + 1);
+    node_ptr_type newRoot = detail::allocate(m_allocator, m_root->level + 1);
 
     branch_type branch;
     // add old root node as a child of the new root
@@ -829,7 +847,7 @@ void TREE_QUAL::copyRec(const node_ptr_type src, node_ptr_type dst) {
     const node_ptr_type srcCurrent = src->children[index];
     if (srcCurrent) {
       node_ptr_type dstCurrent = dst->children[index] =
-          m_allocator.allocate(srcCurrent->level);
+          detail::allocate(m_allocator, srcCurrent->level);
       copyRec(srcCurrent, dstCurrent);
     }
   }
@@ -910,10 +928,12 @@ void TREE_QUAL::splitNode(node_type &node, const branch_type &branch,
   choosePartition(m_parVars);
 
   // Create a new node to hold (about) half of the branches
-  newNode = m_allocator.allocate(node.level);
-  if (allocator_type::is_overflowable && !newNode) {
+  newNode = detail::allocate(m_allocator, node.level);
+
+#if SPATIAL_TREE_ALLOCATOR == SPATIAL_TREE_DEFAULT_ALLOCATOR
+  if (allocator_type::is_overflowable && !newNode)
     return;
-  }
+#endif
 
   assert(newNode);
   // Put branches from buffer into 2 nodes according to the chosen partition
@@ -1117,7 +1137,7 @@ bool TREE_QUAL::removeImpl(const bbox_type &bbox, const ValueType &value) {
         branch.child = tempNode->children[index];
         insertImpl(branch, tempNode->level);
       }
-      m_allocator.deallocate(tempNode);
+      deallocate(tempNode);
     }
 
     // Check for redundant root (not leaf, 1 child) and eliminate TODO replace
@@ -1126,7 +1146,7 @@ bool TREE_QUAL::removeImpl(const bbox_type &bbox, const ValueType &value) {
       node_ptr_type tempNode = m_root->children[0];
 
       assert(tempNode);
-      m_allocator.deallocate(m_root);
+      deallocate(m_root);
       m_root = tempNode;
     }
     return true;

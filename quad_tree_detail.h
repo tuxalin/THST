@@ -168,7 +168,7 @@ void TREE_QUAL::copy(const QuadTreeNode &src, custom_allocator &allocator) {
     for (int i = 0; i < 4; ++i) {
       const QuadTreeNode *srcCurrent = src.children[i];
       QuadTreeNode *dstCurrent = children[i] =
-          allocator.allocate(srcCurrent->level);
+          detail::allocate(allocator, srcCurrent->level);
       dstCurrent->copy(*srcCurrent, allocator);
     }
   }
@@ -198,7 +198,7 @@ bool TREE_QUAL::insert(const object_type &obj, int &levels,
     } else {
       // could not insert anything in any of the sub-trees
       for (int i = 0; i < 4; ++i) {
-        allocator.deallocate(children[i]);
+        detail::deallocate(allocator, children[i]);
         children[i] = NULL;
       }
 
@@ -381,7 +381,7 @@ void TREE_QUAL::clear(custom_allocator &allocator) {
 
   for (int i = 0; i < 4; ++i) {
     children[i]->clear(allocator);
-    allocator.deallocate(children[i]);
+    detail::deallocate(allocator, children[i]);
   }
 }
 
@@ -390,7 +390,7 @@ template <typename custom_allocator>
 void TREE_QUAL::subdivide(custom_allocator &allocator) {
   for (int i = 0; i < 4; ++i) {
     assert(children[i] == NULL);
-    children[i] = allocator.allocate(level + 1);
+    children[i] = detail::allocate(allocator, level + 1);
     QuadTreeNode &node = *children[i];
     node.box = box.quad2d(static_cast<box::RegionType>(i));
   }

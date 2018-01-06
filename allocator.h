@@ -5,25 +5,40 @@
 
 #pragma once
 
+#include "config.h"
+
+namespace spatial {
+
+#if SPATIAL_TREE_ALLOCATOR == SPATIAL_TREE_DEFAULT_ALLOCATOR
+
 #include <assert.h>
 #include <stdint.h>
 
-namespace spatial {
-template <class NodeClass> struct heap_allocator {
+/// A simplified heap allocator.
+template <class NodeClass> struct allocator {
   typedef NodeClass value_type;
-  typedef NodeClass *ptr_type;
 
-  ///@note If true then overflow checks will be performed.
+  /// @note If true then overflow checks will be performed.
   enum { is_overflowable = 0 };
 
-  ptr_type allocate(int level) { return new NodeClass(level); }
+  value_type *allocate(int level) { return new NodeClass(level); }
 
-  void deallocate(const ptr_type node) {
+  void deallocate(const value_type *node) {
     assert(node);
     delete node;
   }
 
-  ///@note Only used if is_overflowable is true.
+  /// If true then an overflowed has occurred.
+  /// @note Only used if is_overflowable is true.
   bool overflowed() const { return false; }
 };
+
+#elif SPATIAL_TREE_ALLOCATOR == SPATIAL_TREE_STD_ALLOCATOR
+
+#include <memory>
+
+using std::allocator;
+#else
+#error "Unknown allocator type!"
+#endif
 } // namespace spatial

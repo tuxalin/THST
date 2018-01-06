@@ -36,7 +36,7 @@ namespace spatial {
 */
 template <class T, class ValueType, int max_child_items = 16,
           typename indexable_getter = Indexable<T, ValueType>,
-          typename custom_allocator = spatial::heap_allocator<
+          typename custom_allocator = spatial::allocator<
               detail::QuadTreeNode<T, ValueType, max_child_items>>>
 class QuadTree {
 public:
@@ -248,7 +248,7 @@ TREE_QUAL::QuadTree(const T min[2], const T max[2], //
       m_factor(60), m_root(NULL) {
   SPATIAL_TREE_STATIC_ASSERT((max_child_items > 1), "Invalid child size!");
 
-  m_root = m_allocator.allocate(0);
+  m_root = detail::allocate(m_allocator, 0);
   m_root->box.set(min, max);
 }
 
@@ -262,7 +262,7 @@ TREE_QUAL::QuadTree(const T min[2], const T max[2], //
       m_factor(60) {
   SPATIAL_TREE_STATIC_ASSERT((max_child_items > 1), "Invalid child size!");
 
-  m_root = m_allocator.allocate(0);
+  m_root = detail::allocate(m_allocator, 0);
   m_root->box.set(min, max);
 
   insert(first, last);
@@ -272,7 +272,7 @@ TREE_TEMPLATE
 TREE_QUAL::QuadTree(const QuadTree &src)
     : m_indexable(src.m_indexable), m_allocator(src.m_allocator),
       m_count(src.m_count), m_levels(src.m_levels), m_factor(src.m_factor),
-      m_root(m_allocator.allocate(0)) {
+      m_root(detail::allocate(m_allocator, 0)) {
   m_root->copy(*src.m_root, m_allocator);
 }
 
@@ -285,7 +285,7 @@ TREE_TEMPLATE
 TREE_QUAL::~QuadTree() {
   if (m_root)
     m_root->clear(m_allocator);
-  m_allocator.deallocate(m_root);
+  detail::deallocate(m_allocator, m_root);
 }
 
 TREE_TEMPLATE
@@ -392,14 +392,22 @@ size_t TREE_QUAL::query(const Predicate &predicate, OutIter out_it) const {
 
 TREE_TEMPLATE
 void TREE_QUAL::clear(bool recursiveCleanup /*= true*/) {
+
+#if SPATIAL_TREE_ALLOCATOR == SPATIAL_TREE_DEFAULT_ALLOCATOR
+  if (allocator_type::is_overflowable)
+    recursiveCleanup &= !m_allocator.overflowed();
+#endif
+
   // Delete all existing nodes
-  if (recursiveCleanup && !m_allocator.overflowed()) {
+  if (recursiveCleanup) {
     if (m_root)
       m_root->clear(m_allocator);
-    m_allocator.deallocate(m_root);
   }
+  const bbox_type box = m_root->box;
+  detail::deallocate(m_allocator, m_root);
 
-  m_root = m_allocator.allocate(0);
+  m_root = detail::allocate(m_allocator, 0);
+  m_root->box = box;
   m_levels = m_count = 0;
 }
 

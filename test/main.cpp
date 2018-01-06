@@ -1,6 +1,8 @@
 
 #include "custom_allocator.h"
 
+#define SPATIAL_TREE_ALLOCATOR 2
+
 #include <QuadTree.h>
 #include <RTree.h>
 #include <iostream>
@@ -238,7 +240,8 @@ int main() {
                 << objects[index].bbox << "\n";
     std::cout << std::endl;
 
-    // custom allocator example
+// custom allocator example
+#if SPATIAL_TREE_ALLOCATOR == SPATIAL_TREE_DEFAULT_ALLOCATOR
     {
       std::cout << "Custom allocator example:\n";
 
@@ -262,6 +265,7 @@ int main() {
       rtree.insert(indices.begin(), indices.end());
       std::cout << std::endl;
     }
+#endif
   }
 
   return 0;
