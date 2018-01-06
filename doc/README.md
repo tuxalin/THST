@@ -1,3 +1,8 @@
+# Documentation
+
+## Doxygen
+
+Install doxygen and run the generation script, i.e. genDocs.sh, which will generate a docset and html format.
 
 ## Usage examples
 
