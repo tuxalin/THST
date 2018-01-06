@@ -217,8 +217,8 @@ public:
   /// \return Returns the number of entries found.
   template <typename Predicate, typename OutIter>
   size_t hierachical_query(const Predicate &predicate, OutIter out_it) const;
-  /// Defines the traget query level, if 0 then leaf values otherwise
-  /// hierachical node values.
+  /// Defines the traget query level, if 0 then leaf values are retrieved
+  /// otherwise hierachical node values.
   /// @note Only used for hierachical_query.
   void setQueryTargetLevel(int level);
 
