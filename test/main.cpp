@@ -68,20 +68,31 @@ int main() {
   std::cout << std::endl;
 
   // create a quad tree with the given box
-  spatial::BoundingBox<int, 2> bbox;
+  spatial::BoundingBox<int, 2> bbox((spatial::box::empty_init()));
   Point<int> point;
   point.set(0, 0);
   bbox.extend(point.data);
   point.set(256, 128);
   bbox.extend(point.data);
 
-  spatial::QuadTree<int, Box2<int>, 2> qtree(bbox.min, bbox.max);
-  spatial::RTree<int, Box2<int>, 2> rtree;
+  typedef spatial::RTree<int, Box2<int>, 2, 4, 2> rtree_box_t;
+  typedef spatial::QuadTree<int, Box2<int>, 2> qtree_box_t;
+  qtree_box_t qtree(bbox.min, bbox.max);
+  rtree_box_t rtree;
 
   // insert elements into the trees
   {
-    qtree.insert(kBoxes, kBoxes + sizeof(kBoxes) / sizeof(kBoxes[0]));
-    rtree.insert(kBoxes, kBoxes + sizeof(kBoxes) / sizeof(kBoxes[0]));
+    rtree.count();
+    rtree = rtree_box_t(std::begin(kBoxes), std::end(kBoxes));
+    qtree =
+        qtree_box_t(bbox.min, bbox.max, std::begin(kBoxes), std::end(kBoxes));
+
+    rtree.clear();
+    qtree.clear();
+
+    // or constrution via insert
+    qtree.insert(std::begin(kBoxes), std::end(kBoxes));
+    rtree.insert(std::begin(kBoxes), std::end(kBoxes));
     Box2<int> box = {{7, 3}, {14, 6}};
     qtree.insert(box);
     rtree.insert(box);
