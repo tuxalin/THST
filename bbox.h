@@ -23,16 +23,20 @@ enum RegionType {
   eSW,     ///< South-West (Bottom left)
   eSE      ///< South-East (Bottom right)
 };
+
+/// Initialize a bounding box with an empty box.
+struct empty_init {};
 } // namespace spatial
 
 /// Minimal bounding bbox (n-dimensional)
 template <typename T, int Dimension> struct BoundingBox {
+
   T min[Dimension];
   T max[Dimension];
 
   BoundingBox();
+  BoundingBox(box::empty_init);
   BoundingBox(const T min[Dimension], const T max[Dimension]);
-  void init();
 
   void extend(const T point[Dimension]);
   void extend(const BoundingBox &bbox);
@@ -62,6 +66,28 @@ private:
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+namespace detail {
+/// C++03 backward compatibility
+/// http://en.cppreference.com/w/cpp/types/numeric_limits/lowest
+template <typename T, bool is_integer> struct NumericLimitsImpl;
+
+template <typename T> struct NumericLimitsImpl<T, false> {
+  static const T highest() { return std::numeric_limits<T>::max(); }
+
+  static const T lowest() { return -std::numeric_limits<T>::max(); }
+};
+
+template <typename T> struct NumericLimitsImpl<T, true> {
+  static const T highest() { return std::numeric_limits<T>::max(); }
+
+  static const T lowest() { return std::numeric_limits<T>::min(); }
+};
+
+template <typename T>
+struct NumericLimits
+    : public NumericLimitsImpl<T, std::numeric_limits<T>::is_integer> {};
+} // namespace detail
+
 #define BBOX_TEMPLATE template <typename T, int Dimension>
 #define BBOX_QUAL BoundingBox<T, Dimension>
 
@@ -74,10 +100,10 @@ BBOX_QUAL::BoundingBox(const T min[Dimension], const T max[Dimension]) {
 }
 
 BBOX_TEMPLATE
-void BBOX_QUAL::init() {
+BBOX_QUAL::BoundingBox(box::empty_init) {
   for (size_t index = 0; index < (size_t)Dimension; ++index) {
-    min[index] = (T)0;
-    max[index] = (T)0;
+    min[index] = spatial::detail::NumericLimits<T>::highest();
+    max[index] = spatial::detail::NumericLimits<T>::lowest();
   }
 }
 
