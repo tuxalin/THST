@@ -186,7 +186,18 @@ public:
   RTree(Iter first, Iter last,                           //
         indexable_getter indexable = indexable_getter(), //
         const allocator_type &allocator = allocator_type());
+  RTree(const RTree &src);
+#ifdef SPATIAL_TREE_USE_CPP11
+  RTree(RTree &&src);
+#endif
   ~RTree();
+
+  RTree &operator=(const RTree &rhs);
+#ifdef SPATIAL_TREE_USE_CPP11
+  RTree &operator=(RTree &&rhs);
+#endif
+
+  void swap(RTree &other);
 
   template <typename Iter> void insert(Iter first, Iter last);
   void insert(const ValueType &value);
@@ -195,7 +206,7 @@ public:
   bool insert(const ValueType &value, const Predicate &predicate);
   void remove(const ValueType &value);
 
-  /// Translates the internal bbox by the given point.
+  /// Translates the internal boxes with the given offset point.
   void translate(const T point[Dimension]);
 
   /// Special query to find all within search rectangle using the hierarchical
@@ -206,6 +217,9 @@ public:
   /// \return Returns the number of entries found.
   template <typename Predicate, typename OutIter>
   size_t hierachical_query(const Predicate &predicate, OutIter out_it) const;
+  /// Defines the traget query level, if 0 then leaf values otherwise
+  /// hierachical node values.
+  /// @note Only used for hierachical_query.
   void setQueryTargetLevel(int level);
 
   /// @see spatial::SpatialPredicate for available predicates.
@@ -232,6 +246,7 @@ public:
   static double levels(size_t numberOfItems);
   /// Returns the bbox of the root node.
   bbox_type bbox() const;
+
   /// Returns the custom allocator
   allocator_type &allocator();
   const allocator_type &allocator() const;
@@ -302,6 +317,7 @@ private:
   bool insertRec(const branch_type &branch, const Predicate &predicate,
                  node_type &node, node_ptr_type &newNode, bool &added,
                  int level);
+  void copyRec(const node_ptr_type src, node_ptr_type dst);
 
   count_type pickBranch(const bbox_type &bbox, const node_type &node) const;
   void getBranches(const node_type &node, const branch_type &branch,
@@ -346,7 +362,7 @@ private:
   }
 
 private:
-  const indexable_getter m_indexable;
+  indexable_getter m_indexable;
   mutable allocator_type m_allocator;
   mutable PartitionVars m_parVars;
   size_t m_count;
@@ -399,8 +415,59 @@ TREE_QUAL::RTree(Iter first, Iter last,
 }
 
 TREE_TEMPLATE
+TREE_QUAL::RTree(const RTree &src)
+    : m_indexable(src.m_indexable), m_allocator(src.m_allocator),
+      m_count(src.m_count), m_queryTargetLevel(src.m_queryTargetLevel),
+      m_root(m_allocator.allocate(0)) {
+  copyRec(src.m_root, m_root);
+}
+
+#ifdef SPATIAL_TREE_USE_CPP11
+TREE_TEMPLATE
+TREE_QUAL::RTree(RTree &&src) : m_root(NULL) { swap(src); }
+#endif
+
+TREE_TEMPLATE
 TREE_QUAL::~RTree() {
-  clear(); // Free, or reset node memory
+  if (m_root && !m_allocator.overflowed())
+    clearRec(m_root);
+}
+
+TREE_TEMPLATE
+TREE_QUAL &TREE_QUAL::operator=(const RTree &rhs) {
+  if (&rhs != this) {
+    if (m_count > 0)
+      clear(true);
+
+    m_count = rhs.m_count;
+    m_queryTargetLevel = rhs.m_queryTargetLevel;
+    m_allocator = rhs.m_allocator;
+    m_indexable = rhs.m_indexable;
+    copyRec(rhs.m_root, m_root);
+  }
+  return *this;
+}
+
+#ifdef SPATIAL_TREE_USE_CPP11
+TREE_TEMPLATE
+TREE_QUAL &TREE_QUAL::operator=(RTree &&rhs) {
+  assert(this != &rhs);
+
+  if (m_count > 0)
+    clear(true);
+  swap(rhs);
+
+  return *this;
+}
+#endif
+
+TREE_TEMPLATE
+void TREE_QUAL::swap(RTree &other) {
+  std::swap(m_root, other.m_root);
+  std::swap(m_count, other.m_count);
+  std::swap(m_queryTargetLevel, other.m_queryTargetLevel);
+  std::swap(m_allocator, other.m_allocator);
+  std::swap(m_indexable, other.m_indexable);
 }
 
 TREE_TEMPLATE
@@ -753,6 +820,19 @@ bool TREE_QUAL::insertImpl(const branch_type &branch,
     m_root = newRoot;
   }
   return added;
+}
+
+TREE_TEMPLATE
+void TREE_QUAL::copyRec(const node_ptr_type src, node_ptr_type dst) {
+  *dst = *src;
+  for (count_type index = 0; index < src->count; ++index) {
+    const node_ptr_type srcCurrent = src->children[index];
+    if (srcCurrent) {
+      node_ptr_type dstCurrent = dst->children[index] =
+          m_allocator.allocate(srcCurrent->level);
+      copyRec(srcCurrent, dstCurrent);
+    }
+  }
 }
 
 // Add a branch to a node.  Split the node if necessary.

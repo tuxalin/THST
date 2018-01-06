@@ -13,6 +13,7 @@ template <class NodeClass> struct heap_allocator {
   typedef NodeClass value_type;
   typedef NodeClass *ptr_type;
 
+  ///@note If true then overflow checks will be performed.
   enum { is_overflowable = 0 };
 
   ptr_type allocate(int level) { return new NodeClass(level); }
@@ -22,6 +23,7 @@ template <class NodeClass> struct heap_allocator {
     delete node;
   }
 
+  ///@note Only used if is_overflowable is true.
   bool overflowed() const { return false; }
 };
 } // namespace spatial

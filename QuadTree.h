@@ -168,14 +168,25 @@ public:
            Iter first, Iter last,                           //
            indexable_getter indexable = indexable_getter(), //
            const allocator_type &allocator = allocator_type());
+  QuadTree(const QuadTree &src);
+#ifdef SPATIAL_TREE_USE_CPP11
+  QuadTree(QuadTree &&src);
+#endif
   ~QuadTree();
+
+  QuadTree &operator=(const QuadTree &rhs);
+#ifdef SPATIAL_TREE_USE_CPP11
+  QuadTree &operator=(QuadTree &&rhs);
+#endif
+
+  void swap(QuadTree &other);
 
   ///@note The tree must be empty before doing this.
   void setBox(const T min[2], const T max[2]);
   template <typename Iter> void insert(Iter first, Iter last);
   void insert(const ValueType &value);
 
-  /// Translates the internal bboxs by the given point.
+  /// Translates the internal boxes with the given offset point.
   void translate(const T point[2]);
 
   /// Special query to find all within search rectangle using the hierarchical
@@ -186,7 +197,7 @@ public:
   size_t hierachical_query(const Predicate &predicate, OutIter out_it) const;
   ///@param containment_factor the containment factor in percentange used for
   /// query, if the total number of visible.
-  ///@note Only used for special/hierarchical query.
+  ///@note Only used for hierarchical query.
   void setContainmentFactor(int factor);
 
   /// @see spatial::SpatialPredicate for available predicates.
@@ -211,13 +222,13 @@ public:
   leaf_iterator lbegin();
 
 private:
-  const indexable_getter m_indexable;
+  indexable_getter m_indexable;
   mutable allocator_type m_allocator;
 
   size_t m_count;
   int m_levels;
-  node_ptr_type m_root;
   float m_factor;
+  node_ptr_type m_root;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -234,7 +245,7 @@ TREE_QUAL::QuadTree(const T min[2], const T max[2], //
                     indexable_getter indexable /*= indexable_getter()*/,
                     const allocator_type &allocator /*= allocator_type()*/)
     : m_indexable(indexable), m_allocator(allocator), m_count(0), m_levels(0),
-      m_root(NULL), m_factor(60) {
+      m_factor(60), m_root(NULL) {
   SPATIAL_TREE_STATIC_ASSERT((max_child_items > 1), "Invalid child size!");
 
   m_root = m_allocator.allocate(0);
@@ -252,14 +263,68 @@ TREE_QUAL::QuadTree(const T min[2], const T max[2], //
   SPATIAL_TREE_STATIC_ASSERT((max_child_items > 1), "Invalid child size!");
 
   m_root = m_allocator.allocate(0);
-  m_root->bbox.set(min, max);
+  m_root->box.set(min, max);
 
   insert(first, last);
 }
 
 TREE_TEMPLATE
+TREE_QUAL::QuadTree(const QuadTree &src)
+    : m_indexable(src.m_indexable), m_allocator(src.m_allocator),
+      m_count(src.m_count), m_levels(src.m_levels), m_factor(src.m_factor),
+      m_root(m_allocator.allocate(0)) {
+  m_root->copy(*src.m_root, m_allocator);
+}
+
+#ifdef SPATIAL_TREE_USE_CPP11
+TREE_TEMPLATE
+TREE_QUAL::QuadTree(QuadTree &&src) : m_root(NULL) { swap(src); }
+#endif
+
+TREE_TEMPLATE
 TREE_QUAL::~QuadTree() {
-  clear(); // Free, or reset node memory
+  if (m_root)
+    m_root->clear(m_allocator);
+  m_allocator.deallocate(m_root);
+}
+
+TREE_TEMPLATE
+TREE_QUAL &TREE_QUAL::operator=(const QuadTree &rhs) {
+  if (&rhs != this) {
+    if (m_count > 0)
+      clear(true);
+
+    m_count = rhs.m_count;
+    m_levels = rhs.m_levels;
+    m_factor = rhs.m_factor;
+    m_allocator = rhs.m_allocator;
+    m_indexable = rhs.m_indexable;
+    m_root->copy(*rhs.m_root, m_allocator);
+  }
+  return *this;
+}
+
+#ifdef SPATIAL_TREE_USE_CPP11
+TREE_TEMPLATE
+TREE_QUAL &TREE_QUAL::operator=(QuadTree &&rhs) {
+  assert(this != &rhs);
+
+  if (m_count > 0)
+    clear(true);
+  swap(rhs);
+
+  return *this;
+}
+#endif
+
+TREE_TEMPLATE
+void TREE_QUAL::swap(QuadTree &other) {
+  std::swap(m_root, other.m_root);
+  std::swap(m_count, other.m_count);
+  std::swap(m_factor, other.m_factor);
+  std::swap(m_levels, other.m_levels);
+  std::swap(m_allocator, other.m_allocator);
+  std::swap(m_indexable, other.m_indexable);
 }
 
 TREE_TEMPLATE

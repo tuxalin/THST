@@ -85,6 +85,8 @@ template <class T, class ValueType, int max_child_items> struct QuadTreeNode {
   QuadTreeNode(int level);
 
   template <typename custom_allocator>
+  void copy(const QuadTreeNode &src, custom_allocator &allocator);
+  template <typename custom_allocator>
   bool insert(const object_type &obj, int &levels, custom_allocator &allocator);
   template <typename Predicate, typename OutIter>
   size_t query(const Predicate &predicate, float factor, OutIter out_it) const;
@@ -143,7 +145,34 @@ private:
 #define TREE_QUAL QuadTreeNode<T, ValueType, max_child_items>
 
 TREE_TEMPLATE
-TREE_QUAL::QuadTreeNode(int level) : level(level), children() {}
+TREE_QUAL::QuadTreeNode(int level)
+    : level(level), children()
+#ifndef NDEBUG
+      ,
+      m_count(0)
+#endif
+{
+}
+
+TREE_TEMPLATE
+template <typename custom_allocator>
+void TREE_QUAL::copy(const QuadTreeNode &src, custom_allocator &allocator) {
+  assert(m_count == 0);
+  value = src.value;
+  objects = src.objects;
+  box = src.box;
+  m_count = src.m_count;
+  m_invCount = src.m_invCount;
+
+  if (src.isBranch()) {
+    for (int i = 0; i < 4; ++i) {
+      const QuadTreeNode *srcCurrent = src.children[i];
+      QuadTreeNode *dstCurrent = children[i] =
+          allocator.allocate(srcCurrent->level);
+      dstCurrent->copy(*srcCurrent, allocator);
+    }
+  }
+}
 
 TREE_TEMPLATE
 template <typename custom_allocator>
