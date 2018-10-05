@@ -1,4 +1,7 @@
-# Hierarchical spatial trees [![Build Status](https://travis-ci.org/tuxalin/THST.svg?branch=master)](https://travis-ci.org/tuxalin/THST)
+# Hierarchical spatial trees 
+[![Build Status](https://travis-ci.org/tuxalin/THST.svg?branch=master)](https://travis-ci.org/tuxalin/THST)
+[![Language](https://img.shields.io/badge/language-C++-blue.svg)](https://isocpp.org/)
+[![License](http://img.shields.io/badge/license-MIT-blue.svg)](http://opensource.org/licenses/MIT)
 Templated hierarchical spatial trees designed for high-performance and hierarchical spatial partitioning use cases.
 
 ## Features
