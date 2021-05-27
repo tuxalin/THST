@@ -219,7 +219,7 @@ int main() {
 
 		// nearest neighbor query
 		{
-			std::cout << "Hierarchical query: "
+			std::cout << "Nearest query: "
 				<< "\n";
 			std::vector<Object> results;
 			Point<int> p = { {0, 0} };
