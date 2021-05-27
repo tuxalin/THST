@@ -204,7 +204,7 @@ namespace spatial {
 			/// Insert the value if the predicate condition is true.
 			template <typename Predicate>
 			bool insert(const ValueType &value, const Predicate &predicate);
-			void remove(const ValueType &value);
+			bool remove(const ValueType &value);
 
 			/// Translates the internal boxes with the given offset point.
 			void translate(const T point[Dimension]);
@@ -532,12 +532,15 @@ namespace spatial {
 	}
 
 	TREE_TEMPLATE
-		void TREE_QUAL::remove(const ValueType &value) {
+		bool TREE_QUAL::remove(const ValueType &value) {
 		assert(m_root);
 
 		const bbox_type bbox(m_indexable.min(value), m_indexable.max(value));
-		if (removeImpl(bbox, value))
+		if (removeImpl(bbox, value)) {
 			--m_count;
+			return true;
+		}
+		return false;
 	}
 
 	TREE_TEMPLATE
@@ -1143,9 +1146,9 @@ namespace spatial {
 					branch.bbox = tempNode->bboxes[index];
 					branch.value = tempNode->values[index];
 					branch.child = tempNode->children[index];
-					insertImpl(branch, tempNode->level);
+					insertImpl(branch, spatial::detail::DummyInsertPredicate(), tempNode->level);
 				}
-				deallocate(tempNode);
+				m_allocator.deallocate(tempNode);
 			}
 
 			// Check for redundant root (not leaf, 1 child) and eliminate TODO replace
@@ -1154,7 +1157,7 @@ namespace spatial {
 				node_ptr_type tempNode = m_root->children[0];
 
 				assert(tempNode);
-				deallocate(m_root);
+				m_allocator.deallocate(m_root);
 				m_root = tempNode;
 			}
 			return true;
@@ -1190,8 +1193,7 @@ namespace spatial {
 					else {
 						// child removed, not enough entries in node, eliminate node
 						reInsertList.push_back(currentNode);
-						node->disconnectBranch(
-							index); // Must return after this call as count has changed
+						node->disconnectBranch(index);
 					}
 					return true;
 				}
@@ -1201,8 +1203,7 @@ namespace spatial {
 		{
 			for (count_type index = 0; index < node->count; ++index) {
 				if (node->values[index] == value) {
-					node->disconnectBranch(
-						index); // Must return after this call as count has changed
+					node->disconnectBranch(index); 
 					return true;
 				}
 			}

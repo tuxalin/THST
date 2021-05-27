@@ -30,6 +30,11 @@ template <typename T> struct Box2 {
 	explicit operator spatial::BoundingBox<int, 2>() const {
 		return spatial::BoundingBox<int, 2>(min, max);
 	}
+
+	bool operator==(const Box2& other) const
+	{
+		return min[0] == other.min[0] && min[1] == other.min[1] && max[0] == other.max[0] && max[1] == other.max[1];
+	}
 };
 
 template <typename T>
@@ -111,6 +116,10 @@ int main() {
 #endif
 		std::cout << "Created trees, element count: " << rtree.count() << "\n";
 		std::cout << std::endl;
+
+		// remove an element
+		bool removed = rtree.remove(box);
+		assert(removed);
 	}
 
 	// query for results within the search box
