@@ -228,6 +228,13 @@ int main() {
 				std::back_inserter(results));
 			for (const auto &res : results)
 				std::cout << res.name << "\n";
+
+			results.clear();
+			rtree.k_nearest(
+				p.data, 3,
+				std::back_inserter(results));
+			for (const auto& res : results)
+				std::cout << res.name << "\n";
 		}
 		std::cout << std::endl;
 	}

@@ -11,7 +11,9 @@
 #include "indexable.h"
 #include "predicates.h"
 #include "rtree_detail.h"
+
 #include <vector>
+#include <queue>
 
 namespace spatial {
 	namespace rtree {
@@ -227,10 +229,14 @@ namespace spatial {
 			template <typename Predicate, typename OutIter>
 			size_t query(const Predicate &predicate, OutIter out_it) const;
 
-			/// Performs a nearest aproximation search.
+			/// Performs a nearest neighbour search.
 			/// @note Only for 2D space.
 			template <typename OutIter>
 			size_t nearest(const T point[2], T radius, OutIter out_it) const;
+
+			/// Performs a knn-nearest search.
+			template <typename OutIter>
+			size_t k_nearest(const T point[Dimension], uint32_t k, OutIter out_it) const;
 
 			/// Remove all entries from tree
 			void clear(bool recursiveCleanup = true);
@@ -310,6 +316,39 @@ namespace spatial {
 				}
 			};
 
+
+			struct NearestDistance {
+				RealType distance;
+				node_ptr_type node;
+				count_type index;
+
+				NearestDistance(node_ptr_type node, RealType distance, count_type index = 0xFFFFFFF) :
+					node(node), distance(distance), index(index)
+				{
+				}
+
+				bool operator<(const NearestDistance& other) const
+				{
+					return distance > other.distance;
+				}
+
+				bool isLeaf() const
+				{
+					return node->isLeaf();
+				}
+
+				bool isObject() const
+				{
+					return isLeaf() && index != 0xFFFFFFF;
+				}
+
+				const bbox_type& object_bbox() const
+				{
+					assert(isObject());
+					return node->bboxes[index];
+				}
+			};
+
 			template <typename Predicate>
 			bool insertImpl(const branch_type &branch, const Predicate &predicate,
 				int level);
@@ -355,10 +394,29 @@ namespace spatial {
 			size_t countImpl(const node_type &node) const;
 			void countRec(const node_type &node, size_t &count) const;
 
-			inline static RealType distance(T x0, T y0, T x1, T y1) {
-				T d1 = (x0 - x1);
-				T d2 = (y0 - y1);
-				return (RealType)std::sqrt(d1 * d1 + d2 * d2);
+			inline static RealType distance(const T point0[Dimension], const T point1[Dimension]) {
+
+				RealType d = point0[0] - point1[0];
+				d *= d;
+				for (int i = 1; i < Dimension; i++)
+				{
+					RealType temp = point0[i] - point1[i];
+					d += temp * temp;
+				}
+				return d;
+			}
+
+			inline static RealType distance(const T point[Dimension], const bbox_type& bbox) {
+
+				RealType d = std::max(std::max(bbox.min[0] - point[0], (T)0), point[0] - bbox.max[0]);
+				d *= d;
+				for (int i = 1; i < Dimension; i++)
+				{
+					RealType temp = std::max(std::max(bbox.min[i] - point[i], (T)0), point[i] - bbox.max[i]);
+					d += temp * temp;
+				}
+
+				return d;
 			}
 
 		private:
@@ -578,6 +636,60 @@ namespace spatial {
 	size_t TREE_QUAL::nearest(const T point[2], T radius, OutIter out_it) const {
 		size_t foundCount = 0;
 		nearestRec(m_root, point, radius, foundCount, out_it);
+
+		return foundCount;
+	}
+
+	TREE_TEMPLATE
+		template <typename OutIter>
+	size_t TREE_QUAL::k_nearest(const T point[Dimension], uint32_t k, OutIter out_it) const {
+		size_t foundCount = 0;
+		
+		// incremental nearest neighbor search
+		std::priority_queue<NearestDistance> queue;
+
+		queue.emplace(m_root, 0);
+		while (!queue.empty())
+		{
+			const NearestDistance element = queue.top();
+			queue.pop();
+			if (element.isObject())
+			{
+				RealType d = distance(point, element.object_bbox());
+				if (!queue.empty() && d > queue.top().distance)
+				{
+					queue.push(element);
+				}
+				else
+				{
+					*out_it = element.node->values[element.index];
+					++out_it;
+					if (++foundCount == k)
+					{
+						break;
+					}
+				}
+			}
+			else if (element.isLeaf())
+			{
+				for (count_type index = 0; index < element.node->count; ++index)
+				{
+					const bbox_type& bbox = element.node->bboxes[index];
+					RealType d = distance(point, bbox);
+					queue.emplace(element.node, d, index);
+				}
+			}
+			else
+			{
+				// is a branch
+				for (count_type index = 0; index < element.node->count; ++index)
+				{
+					const bbox_type& bbox = element.node->bboxes[index];
+					RealType d = distance(point, bbox);
+					queue.emplace(element.node->children[index], d);
+				}
+			}
+		}
 
 		return foundCount;
 	}
@@ -1298,7 +1410,7 @@ namespace spatial {
 					// use euclidean distance
 					T center[2];
 					nodeBBox.center(center);
-					branch.distance = distance(point[0], point[1], center[0], center[1]);
+					branch.distance = distance(point, center);
 				}
 			}
 
@@ -1326,7 +1438,7 @@ namespace spatial {
 					// use euclidean distance
 					T center[2];
 					nodeBBox.center(center);
-					branch.distance = distance(point[0], point[1], center[0], center[1]);
+					branch.distance = distance(point, center);
 				}
 				else
 					// discarded branch
