@@ -21,6 +21,18 @@ template <typename T> struct Point {
 		this->x = x;
 		this->y = y;
 	}
+
+	inline float distance(const Point point) const {
+
+		float d = data[0] - point.data[0];
+		d *= d;
+		for (int i = 1; i < 2; i++)
+		{
+			float temp = data[i] - point.data[i];
+			d += temp * temp;
+		}
+		return std::sqrt(d);
+	}
 };
 
 template <typename T> struct Box2 {
@@ -219,22 +231,28 @@ int main() {
 
 		// nearest neighbor query
 		{
-			std::cout << "Nearest query: "
+			std::cout << "Nearest radius query: "
 				<< "\n";
 			std::vector<Object> results;
 			Point<int> p = { {0, 0} };
 			rtree.nearest(
 				p.data, 100,
 				std::back_inserter(results));
-			for (const auto &res : results)
-				std::cout << res.name << "\n";
+			for (const auto& res : results) {
+				Point<int>  center;
+				res.bbox.center(center.data);
+				std::cout << res.name << " : " << p.distance(center) << "\n";
+			}
+
+			std::cout << "Nearest knn query: "
+				<< "\n";
 
 			results.clear();
 			rtree.k_nearest(
 				p.data, 3,
 				std::back_inserter(results));
 			for (const auto& res : results)
-				std::cout << res.name << "\n";
+				std::cout << res.name << " : " << res.bbox.distance(p.data) << "\n";
 		}
 		std::cout << std::endl;
 	}

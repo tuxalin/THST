@@ -49,6 +49,9 @@ namespace spatial {
 		bool contains(const BoundingBox &bbox) const;
 		bool contains(const T point[Dimension]) const;
 
+		float distance(const T point[Dimension]) const;
+		T distanceSquare(const T point[Dimension]) const;
+
 		void center(T center[Dimension]) const;
 
 		template <int VolumeMode, typename RealType> RealType volume() const;
@@ -223,6 +226,26 @@ namespace spatial {
 		for (int i = 0; i < Dimension; ++i) {
 			center[i] = min[i] + (max[i] - min[i]) / 2;
 		}
+	}
+
+	BBOX_TEMPLATE
+		T BBOX_QUAL::distanceSquare(const T point[Dimension]) const {
+
+		T d = std::max(std::max(min[0] - point[0], (T)0), point[0] - max[0]);
+		d *= d;
+		for (int i = 1; i < Dimension; i++)
+		{
+			T temp = std::max(std::max(min[i] - point[i], (T)0), point[i] - max[i]);
+			d += temp * temp;
+		}
+
+		return d;
+	}
+
+	BBOX_TEMPLATE
+		float BBOX_QUAL::distance(const T point[Dimension]) const {
+
+		return std::sqrt(float(distanceSquare(point)));
 	}
 
 	BBOX_TEMPLATE

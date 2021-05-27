@@ -230,11 +230,12 @@ namespace spatial {
 			size_t query(const Predicate &predicate, OutIter out_it) const;
 
 			/// Performs a nearest neighbour search.
-			/// @note Only for 2D space.
+			/// @note Uses the distance to the center of the bbox.
 			template <typename OutIter>
 			size_t nearest(const T point[2], T radius, OutIter out_it) const;
 
 			/// Performs a knn-nearest search.
+			/// /// @note Uses the minimum distance to the bbox.
 			template <typename OutIter>
 			size_t k_nearest(const T point[Dimension], uint32_t k, OutIter out_it) const;
 
@@ -655,8 +656,7 @@ namespace spatial {
 			queue.pop();
 			if (element.isObject())
 			{
-				RealType d = distance(point, element.object_bbox());
-				if (!queue.empty() && d > queue.top().distance)
+				if (!queue.empty() && distance(point, element.object_bbox()) > queue.top().distance)
 				{
 					queue.push(element);
 				}
