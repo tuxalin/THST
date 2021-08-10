@@ -7,12 +7,16 @@
 
 #include "config.h"
 
+#if SPATIAL_TREE_ALLOCATOR == SPATIAL_TREE_DEFAULT_ALLOCATOR
+#include <assert.h>
+#include <stdint.h>
+#elif SPATIAL_TREE_ALLOCATOR == SPATIAL_TREE_STD_ALLOCATOR
+#include <memory>
+#endif
+
 namespace spatial {
 
 #if SPATIAL_TREE_ALLOCATOR == SPATIAL_TREE_DEFAULT_ALLOCATOR
-
-#include <assert.h>
-#include <stdint.h>
 
 	/// A simplified heap allocator.
 	template <class NodeClass> struct allocator {
@@ -34,8 +38,6 @@ namespace spatial {
 	};
 
 #elif SPATIAL_TREE_ALLOCATOR == SPATIAL_TREE_STD_ALLOCATOR
-
-#include <memory>
 
 	using std::allocator;
 #else
