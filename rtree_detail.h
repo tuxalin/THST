@@ -142,8 +142,8 @@ namespace spatial {
 
 		template <class NodeClass>
 		struct CheckInsertPredicateHelper<DummyInsertPredicate, NodeClass> {
-			inline bool operator()(const DummyInsertPredicate &predicate,
-				const NodeClass &node) const {
+			inline bool operator()(const DummyInsertPredicate & /*predicate*/,
+				const NodeClass & /*node*/) const {
 				return true;
 			};
 		};
