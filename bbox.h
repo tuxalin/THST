@@ -152,7 +152,7 @@ namespace spatial {
 	}
 
 	BBOX_TEMPLATE
-		typename BBOX_QUAL::BoundingBox
+		BBOX_QUAL
 		BBOX_QUAL::extended(const BoundingBox &obbox) const {
 		checkValid();
 
