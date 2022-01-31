@@ -998,30 +998,27 @@ namespace spatial {
 		TREE_QUAL::pickBranch(const bbox_type &bbox, const node_type &node) const {
 		assert(node.count);
 
-		real_type increase;
-		real_type bestIncr;
-		real_type area;
-		real_type bestArea;
 		count_type best;
-		bbox_type extendedBBox;
+		real_type bestArea;
+		real_type bestIncrease;
 		{
 			const bbox_type &currentBBox = node.bboxes[0];
-			area = currentBBox.template volume<bbox_volume_mode, RealType>();
-			extendedBBox = bbox.extended(currentBBox);
-			increase = extendedBBox.template volume<bbox_volume_mode, RealType>() - area;
+			const real_type area = currentBBox.template volume<bbox_volume_mode, RealType>();
+			const bbox_type extendedBBox = bbox.extended(currentBBox);
+			const real_type increase = extendedBBox.template volume<bbox_volume_mode, RealType>() - area;
 			best = 0;
 			bestArea = area;
-			bestIncr = increase;
+			bestIncrease = increase;
 		}
 		for (count_type index = 1; index < node.count; ++index) {
 			const bbox_type &currentBBox = node.bboxes[index];
-			area = currentBBox.template volume<bbox_volume_mode, RealType>();
-			extendedBBox = bbox.extended(currentBBox);
-			increase = extendedBBox.template volume<bbox_volume_mode, RealType>() - area;
-			if ((increase == bestIncr) && (area < bestArea)) {
+			const real_type area = currentBBox.template volume<bbox_volume_mode, RealType>();
+			const bbox_type extendedBBox = bbox.extended(currentBBox);
+			const real_type increase = extendedBBox.template volume<bbox_volume_mode, RealType>() - area;
+			if ((increase == bestIncrease) && (area < bestArea)) {
 				best = index;
 				bestArea = area;
-				bestIncr = increase;
+				bestIncrease = increase;
 			}
 		}
 		return best;
