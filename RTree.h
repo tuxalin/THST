@@ -989,40 +989,41 @@ namespace spatial {
 	}
 
 	// Pick a branch.  Pick the one that will need the smallest increase
-	// in area to accomodate the new rectangle.  This will result in the
+	// in area to fit the new rectangle.  This will result in the
 	// least total area for the covering rectangles in the current node.
 	// In case of a tie, pick the one which was smaller before, to get
 	// the best resolution when searching.
 	TREE_TEMPLATE
 		typename TREE_QUAL::count_type
 		TREE_QUAL::pickBranch(const bbox_type &bbox, const node_type &node) const {
-		bool firstTime = true;
+		assert(node.count);
+
 		real_type increase;
-		real_type bestIncr = (real_type)-1;
+		real_type bestIncr;
 		real_type area;
 		real_type bestArea;
 		count_type best;
-		bbox_type tempbbox_type;
-
-		for (count_type index = 0; index < node.count; ++index) {
-			const bbox_type &curbbox_type = node.bboxes[index];
-			area = curbbox_type.template volume<bbox_volume_mode, RealType>();
-			tempbbox_type = bbox.extended(curbbox_type);
-			increase =
-				tempbbox_type.template volume<bbox_volume_mode, RealType>() - area;
-			if ((increase < bestIncr) || firstTime) {
-				best = index;
-				bestArea = area;
-				bestIncr = increase;
-				firstTime = false;
-			}
-			else if ((increase == bestIncr) && (area < bestArea)) {
+		bbox_type extendedBBox;
+		{
+			const bbox_type &currentBBox = node.bboxes[0];
+			area = currentBBox.template volume<bbox_volume_mode, RealType>();
+			extendedBBox = bbox.extended(currentBBox);
+			increase = extendedBBox.template volume<bbox_volume_mode, RealType>() - area;
+			best = 0;
+			bestArea = area;
+			bestIncr = increase;
+		}
+		for (count_type index = 1; index < node.count; ++index) {
+			const bbox_type &currentBBox = node.bboxes[index];
+			area = currentBBox.template volume<bbox_volume_mode, RealType>();
+			extendedBBox = bbox.extended(currentBBox);
+			increase = extendedBBox.template volume<bbox_volume_mode, RealType>() - area;
+			if ((increase == bestIncr) && (area < bestArea)) {
 				best = index;
 				bestArea = area;
 				bestIncr = increase;
 			}
 		}
-		assert(node.count);
 		return best;
 	}
 

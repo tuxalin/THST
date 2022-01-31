@@ -2,3 +2,4 @@ test/build/
 benchmark/build/
 doc/html
 doc/docset
+build/
