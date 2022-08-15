@@ -13,13 +13,16 @@ project(THST
 add_library(THST INTERFACE)
 add_library(THST::THST ALIAS THST)
 
-target_include_directories(THST INTERFACE ${PROJECT_SOURCE_DIR})
+target_include_directories(THST
+	INTERFACE
+		"${PROJECT_SOURCE_DIR}"
+)
 
 if(CMAKE_VERSION VERSION_GREATER 3.7)
 	target_compile_features(THST INTERFACE cxx_std_11)
 endif()
 
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-	add_subdirectory(tests)
+	add_subdirectory(test)
 endif()
 
