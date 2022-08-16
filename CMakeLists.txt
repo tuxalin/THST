@@ -20,6 +20,6 @@ if(CMAKE_VERSION VERSION_GREATER 3.7)
 endif()
 
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-	add_subdirectory(tests)
+	add_subdirectory(test)
 endif()
 
