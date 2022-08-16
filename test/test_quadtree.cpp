@@ -3,6 +3,8 @@
 
 #include <array>
 #include <iterator>
+#include <ostream>
+#include <sstream>
 
 template <typename T>
 struct Box2 {
@@ -22,9 +24,17 @@ struct Box2 {
 	}
 };
 
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const Box2<T> box) {
+	os << "{{" << box.min[0] << ", " << box.min[1] << "}, {"
+	   << box.max[0] << ", " << box.max[1] << "}}";
+	return os;
+}
+
+
 TEST_CASE("test count") {
-	int min[2]{0, 0};
-	int max[2]{1, 1};
+	int min[]{0, 0};
+	int max[]{1, 1};
 	spatial::BoundingBox<int, 2> bbox{min, max};
 	spatial::QuadTree<int, Box2<int>> qtree{bbox.min, bbox.max};
 	Box2<int> box{{0, 0}, {1, 1}};
@@ -49,5 +59,47 @@ TEST_CASE("test count") {
 			expected_count += inserts;
 			CHECK(qtree.count() == expected_count);
 		}
+	}
+}
+
+TEST_CASE("test query") {
+	int min[]{-2, -1};
+	int max[]{9, 10};
+	spatial::BoundingBox<int, 2> bbox{min, max};
+	spatial::QuadTree<int, Box2<int>> qtree{bbox.min, bbox.max};
+
+	SUBCASE("with empty tree") {
+		CHECK(qtree.query(spatial::intersects(bbox)) == false);
+	}
+
+	Box2<int> box{{0, 1}, {5, 6}};
+	qtree.insert(box);
+
+	SUBCASE("with lower left corner touching") {
+		int corner_min[]{-1, 0};
+		int corner_max[]{0, 1};
+		spatial::BoundingBox<int, 2> qbox{corner_min, corner_max};
+		CHECK(qtree.query(spatial::intersects(qbox)) == true);
+	}
+
+	SUBCASE("with upper right corner touching") {
+		int corner_min[]{5, 6};
+		int corner_max[]{6, 7};
+		spatial::BoundingBox<int, 2> qbox{corner_min, corner_max};
+		CHECK(qtree.query(spatial::intersects(qbox)) == true);
+	}
+
+	SUBCASE("with non-intersecting box") {
+		std::array<Box2<int>, 4> queries{
+			Box2<int>{{ 0, -1}, { 1, 0}},
+			Box2<int>{{-2,  1}, {-1, 2}},
+			Box2<int>{{ 5,  7}, { 6, 8}},
+			Box2<int>{{ 6,  5}, { 7, 8}}};
+
+		for (const auto query : queries) {
+			CAPTURE(query);
+			spatial::BoundingBox<int, 2> qbox{query};
+			CHECK(qtree.query(spatial::intersects(qbox)) == false);
+		}	
 	}
 }
