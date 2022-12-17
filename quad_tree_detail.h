@@ -141,6 +141,7 @@ namespace spatial {
 			template <typename custom_allocator>
 			void subdivide(custom_allocator &allocator);
 			void addObject(const object_type &obj);
+			bool removeObject(const object_type& obj);
 			template <typename custom_allocator>
 			bool addObjectsToChildren(custom_allocator &allocator);
 
@@ -234,17 +235,7 @@ namespace spatial {
 				return false;
 
 			if (isLeaf())
-			{
-				if (objects.size() > 0) {
-					const auto found = std::find(objects.begin(), objects.end(), obj);
-					if (found != objects.end())
-					{
-						objects.erase(found);
-						updateCount();
-						return true;
-					}
-				}
-			}
+				return removeObject(obj);
 
 			// try to remove from one of the children
 			for (int i = 0; i < 4; ++i) {
@@ -253,6 +244,18 @@ namespace spatial {
 					updateCount();
 					return true;
 				}
+			}
+			return removeObject(obj);
+		}
+
+		TREE_TEMPLATE
+			bool TREE_QUAL::removeObject(const object_type& obj) {
+			const auto found = std::find(objects.begin(), objects.end(), obj);
+			if (found != objects.end())
+			{
+				objects.erase(found);
+				updateCount();
+				return true;
 			}
 			return false;
 		}
