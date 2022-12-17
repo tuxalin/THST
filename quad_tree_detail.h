@@ -69,6 +69,11 @@ namespace spatial {
 			template <typename indexable_getter>
 			QuadTreeObject(ValueType value, const indexable_getter &indexable)
 				: value(value), box(indexable.min(value), indexable.max(value)) {}
+
+			inline bool operator==(const QuadTreeObject& other) const 
+			{
+				return value == other.value;
+			}
 		};
 
 		template <class T, class ValueType, int max_child_items> struct QuadTreeNode {
@@ -88,6 +93,8 @@ namespace spatial {
 			void copy(const QuadTreeNode &src, custom_allocator &allocator);
 			template <typename custom_allocator>
 			bool insert(const object_type &obj, int &levels, custom_allocator &allocator);
+			template <typename custom_allocator>
+			bool remove(const object_type& obj, custom_allocator& allocator);
 			template <typename Predicate, typename OutIter>
 			size_t query(const Predicate &predicate, float factor, OutIter out_it) const;
 			template <typename Predicate, typename OutIter>
@@ -186,8 +193,6 @@ namespace spatial {
 			{
 				if (objects.size() < max_child_items + 1) {
 					addObject(obj);
-
-					updateCount();
 					return true;
 				}
 
@@ -204,7 +209,6 @@ namespace spatial {
 					}
 
 					addObject(obj);
-					updateCount();
 					return true;
 				}
 			}
@@ -218,8 +222,39 @@ namespace spatial {
 				}
 			}
 			addObject(obj);
-			updateCount();
 			return true;
+		}
+
+		TREE_TEMPLATE
+			template <typename custom_allocator>
+		bool TREE_QUAL::remove(const object_type& obj,
+			custom_allocator& allocator) {
+			if (!this->box.contains(obj.box))
+				// this object doesn't fit in this quadtree
+				return false;
+
+			if (isLeaf())
+			{
+				if (objects.size() > 0) {
+					const auto found = std::find(objects.begin(), objects.end(), obj);
+					if (found != objects.end())
+					{
+						objects.erase(found);
+						updateCount();
+						return true;
+					}
+				}
+			}
+
+			// try to remove from one of the children
+			for (int i = 0; i < 4; ++i) {
+				assert(children[i]);
+				if (children[i]->remove(obj, allocator)) {
+					updateCount();
+					return true;
+				}
+			}
+			return false;
 		}
 
 		TREE_TEMPLATE
@@ -398,7 +433,14 @@ namespace spatial {
 		}
 
 		TREE_TEMPLATE
-			void TREE_QUAL::addObject(const object_type &obj) { objects.push_back(obj); }
+			void TREE_QUAL::addObject(const object_type &obj) { 
+			auto found = std::find(objects.begin(), objects.end(), obj);
+			if (found == objects.end())
+			{
+				objects.push_back(obj);
+				updateCount();
+			}
+		}
 
 		TREE_TEMPLATE
 			template <typename custom_allocator>

@@ -24,7 +24,7 @@ namespace spatial {
 	 - custom allocation for internal nodes
 
 	 @tparam T                  type of the space(eg. int, float, etc.)
-	 @tparam ValueType		    type of value stored in the tree's nodes
+	 @tparam ValueType		    type of value stored in the tree's nodes, requires a equality operator.
 	 @tparam max_child_items    maximum number of items per node
 	 @tparam indexable_getter   the indexable getter, i.e. the getter for the
 	 bounding box of a value
@@ -185,6 +185,7 @@ namespace spatial {
 			void setBox(const T min[2], const T max[2]);
 			template <typename Iter> void insert(Iter first, Iter last);
 			void insert(const ValueType &value);
+			bool remove(const ValueType& value);
 
 			/// Translates the internal boxes with the given offset point.
 			void translate(const T point[2]);
@@ -195,7 +196,7 @@ namespace spatial {
 			/// \return Returns the number of entries found.
 			template <typename Predicate, typename OutIter>
 			size_t hierachical_query(const Predicate &predicate, OutIter out_it) const;
-			///@param containment_factor the containment factor in percentange used for
+			///@param containment_factor the containment factor in percentage used for
 			/// query, if the total number of visible.
 			///@note Only used for hierarchical query.
 			void setContainmentFactor(int factor);
@@ -361,6 +362,20 @@ namespace spatial {
 
 		(void)(success);
 		assert(success);
+	}
+
+	TREE_TEMPLATE
+		bool TREE_QUAL::remove(const ValueType& value) {
+		assert(m_root);
+
+		const object_type obj(value, m_indexable);
+		assert(m_root->box.contains(obj.box));
+
+		const bool success = m_root->remove(obj, m_allocator);
+		if (success)
+			--m_count;
+
+		return success;
 	}
 
 	TREE_TEMPLATE
