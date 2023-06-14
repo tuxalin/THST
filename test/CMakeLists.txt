@@ -35,4 +35,3 @@ target_compile_definitions(test
 	PRIVATE
 		DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 )
-

@@ -59,12 +59,19 @@ std::ostream &operator<<(std::ostream &stream, const Box2<T> &bbox) {
 struct Object {
 	spatial::BoundingBox<int, 2> bbox;
 	std::string name;
+
+	// needed to avoid adding duplicates
+	bool operator==(const Object& other) const
+	{
+		return name == other.name;
+	}
 };
 
 const Box2<int> kBoxes[] = {
-	{{16, 0}, {32, 16}},   {{0, 0}, {8, 8}},      {{4, 4}, {6, 8}},
-	{{4, 2}, {8, 4}},      {{3, 3}, {12, 16}},    {{0, 0}, {64, 32}},
-	{{32, 32}, {64, 128}}, {{128, 0}, {256, 64}}, {{120, 64}, {250, 128}} };
+	{{5, 2}, {16, 7}},  {{1, 1}, {2, 2}},  {{26, 24}, {44, 28}}, {{22, 21}, {23, 24}},
+	{{16, 0}, {32, 16}},   {{0, 0}, {8, 8}},      {{4, 4}, {6, 8}}, {{2, 1}, {2, 3}},
+	{{4, 2}, {8, 4}},      {{3, 3}, {12, 16}},    {{0, 0}, {64, 32}}, {{3, 2}, {32, 35}},
+	{{32, 32}, {64, 128}}, {{128, 0}, {256, 64}}, {{120, 64}, {250, 128}}, {{123, 84}, {230, 122}} };
 
 int main() {
 	std::vector<Object> objects;
@@ -132,6 +139,15 @@ int main() {
 		// remove an element
 		bool removed = rtree.remove(box);
 		assert(removed);
+
+		std::vector<Box2<int>> results;
+		qtree.query(spatial::contains<2>(box.min, box.max), std::back_inserter(results));
+		assert(!results.empty());
+		removed = qtree.remove(box);
+		assert(removed);
+		results.clear();
+		qtree.query(spatial::contains<2>(box.min, box.max), std::back_inserter(results));
+		assert(results.empty());
 	}
 
 	// query for results within the search box
