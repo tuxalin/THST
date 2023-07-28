@@ -1537,14 +1537,14 @@ namespace spatial {
 	TREE_TEMPLATE
 		const ValueType &TREE_QUAL::base_iterator::operator*() const {
 		assert(valid());
-		typename base_type::StackElement &curTos = m_stack[m_tos - 1];
+		const typename base_type::StackElement &curTos = m_stack[m_tos - 1];
 		return curTos.node->values[curTos.branchIndex];
 	}
 
 	TREE_TEMPLATE
 		const typename TREE_QUAL::bbox_type &TREE_QUAL::base_iterator::bbox() const {
 		assert(valid());
-		typename base_type::StackElement &curTos = m_stack[m_tos - 1];
+		const typename base_type::StackElement &curTos = m_stack[m_tos - 1];
 		return curTos.node->bboxes[curTos.branchIndex];
 	}
 
