@@ -652,7 +652,7 @@ namespace spatial {
 
 	TREE_TEMPLATE
 		const typename TREE_QUAL::bbox_type &TREE_QUAL::node_iterator::bbox() const {
-		return m_node->bbox;
+		return m_node->box;
 	}
 
 	TREE_TEMPLATE
