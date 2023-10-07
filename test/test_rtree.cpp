@@ -24,11 +24,11 @@ template <typename T> struct Point {
 
 	inline float distance(const Point point) const {
 
-		float d = data[0] - point.data[0];
+		float d = float(data[0] - point.data[0]);
 		d *= d;
 		for (int i = 1; i < 2; i++)
 		{
-			float temp = data[i] - point.data[i];
+			float temp = float(data[i] - point.data[i]);
 			d += temp * temp;
 		}
 		return std::sqrt(d);
@@ -194,6 +194,77 @@ TEST_CASE("query for results within the search box")
 	for (const auto& res : results)
 		resultsStream << res << ", ";
 	CHECK(resultsStream.str() == "min: 3 3 max: 12 16, min: 0 0 max: 64 32, min: 3 2 max: 32 35, min: 1 1 max: 2 2, min: 2 1 max: 2 3, min: 5 2 max: 16 7, min: 0 0 max: 8 8, min: 4 4 max: 6 8, min: 4 2 max: 8 4, min: 1 1 max: 2 2, min: 2 1 max: 2 3, min: 0 0 max: 8 8, min: 4 4 max: 6 8, min: 4 2 max: 8 4, ");
+}
+
+TEST_CASE("ray query")
+{
+	Point<float> rayOrigin({ 0.5, 0 });
+	Point<float> rayDir({ 0, 1 });
+	std::vector<Box2<int>> results;
+	rtree.rayQuery(rayOrigin.data, rayDir.data, std::back_inserter(results));
+
+	std::stringstream resultsStream;
+	for (const auto& res : results)
+		resultsStream << res << ", ";
+	CHECK(resultsStream.str() == "min: 0 0 max: 64 32, min: 0 0 max: 8 8, ");
+
+	rayOrigin = Point<float>({ 100.5, 0.5 });
+	rayDir = Point<float>({ 0, 1 });
+	results.clear();
+	rtree.rayQuery(rayOrigin.data, rayDir.data, std::back_inserter(results));
+	CHECK(results.empty());
+
+	rayOrigin = Point<float>({ 68,130 });
+	rayDir = Point<float>({ 120, 52 });
+	results.clear();
+	rtree.rayQuery(rayOrigin.data, rayDir.data, std::back_inserter(results));
+	resultsStream.str("");
+	for (const auto& res : results)
+		resultsStream << res << ", ";
+	CHECK(resultsStream.str() == "min: 32 32 max: 64 128, ");
+
+	rayOrigin = Point<float>({ 11,110 });
+	rayDir = Point<float>({ 1, 0 });
+	results.clear();
+	rtree.rayQuery(rayOrigin.data, rayDir.data, std::back_inserter(results));
+	resultsStream.str("");
+	for (const auto& res : results)
+		resultsStream << res << ", ";
+	CHECK(resultsStream.str() == "min: 32 32 max: 64 128, min: 123 84 max: 230 122, min: 120 64 max: 250 128, ");
+
+	rayOrigin = Point<float>({ 63, 25 });
+	rayDir = Point<float>({ 0, 2});
+	results.clear();
+	rtree.rayQuery(rayOrigin.data, rayDir.data, std::back_inserter(results));
+	resultsStream.str("");
+	for (const auto& res : results)
+		resultsStream << res << ", ";
+	CHECK(resultsStream.str() == "min: 32 32 max: 64 128, min: 0 0 max: 64 32, ");
+
+	rayOrigin = Point<float>({ 62, 70 });
+	rayDir = Point<float>({ 0, -2 });
+	results.clear();
+	rtree.rayQuery(rayOrigin.data, rayDir.data, std::back_inserter(results));
+	resultsStream.str("");
+	for (const auto& res : results)
+		resultsStream << res << ", ";
+	CHECK(resultsStream.str() == "min: 32 32 max: 64 128, min: 0 0 max: 64 32, ");
+
+	auto fnTestPredicate = [](const Box2<int>& box) {return box.min[0] == 0;  };
+	rayOrigin = Point<float>({ 62, 70 });
+	rayDir = Point<float>({ 0, -2 });
+	results.clear();
+	rtree.rayQuery(rayOrigin.data, rayDir.data, std::back_inserter(results), fnTestPredicate);
+	resultsStream.str("");
+	for (const auto& res : results)
+		resultsStream << res << ", ";
+	CHECK(resultsStream.str() == "min: 0 0 max: 64 32, ");
+
+	rayOrigin = Point<float>({ 65, 70 });
+	rayDir = Point<float>({ 0, -2 });
+	results.clear();
+	rtree.rayQuery(rayOrigin.data, rayDir.data, std::back_inserter(results));
+	CHECK(results.empty());
 }
 
 TEST_CASE("tree traversal")

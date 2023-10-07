@@ -176,7 +176,7 @@ namespace spatial {
 
 			QuadTree &operator=(const QuadTree &rhs);
 #ifdef SPATIAL_TREE_USE_CPP11
-			QuadTree &operator=(QuadTree &&rhs);
+			QuadTree &operator=(QuadTree &&rhs) noexcept;
 #endif
 
 			void swap(QuadTree &other);
@@ -307,7 +307,7 @@ namespace spatial {
 
 #ifdef SPATIAL_TREE_USE_CPP11
 	TREE_TEMPLATE
-		TREE_QUAL &TREE_QUAL::operator=(QuadTree &&rhs) {
+		TREE_QUAL &TREE_QUAL::operator=(QuadTree &&rhs) noexcept {
 		assert(this != &rhs);
 
 		if (m_count > 0)
@@ -417,12 +417,13 @@ namespace spatial {
 			if (m_root)
 				m_root->clear(m_allocator);
 		}
+		assert(m_root != nullptr);
 		const bbox_type box = m_root->box;
 		detail::deallocate(m_allocator, m_root);
 
 		m_root = detail::allocate(m_allocator, 0);
 		m_root->box = box;
-		m_levels = m_count = 0;
+		m_levels = m_count = 0u;
 	}
 
 	TREE_TEMPLATE

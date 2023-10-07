@@ -124,6 +124,15 @@ namespace spatial {
 			}
 		}; // Node
 
+
+		struct AlwayTruePredicate {
+
+			template <typename T>
+			inline bool operator()(const T&) const {
+				return true;
+			}
+		};
+
 		struct DummyInsertPredicate {};
 
 		template <typename Predicate, class NodeClass>

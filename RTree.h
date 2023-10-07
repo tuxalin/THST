@@ -105,7 +105,7 @@ namespace spatial {
 				using base_type::m_tos;
 			};
 			/**
-			 @brief Iterator to traverese the items of a node of the tree.
+			 @brief Iterator to traverse the items of a node of the tree.
 			 */
 			struct node_iterator {
 				node_iterator();
@@ -219,15 +219,20 @@ namespace spatial {
 			/// \return Returns the number of entries found.
 			template <typename Predicate, typename OutIter>
 			size_t hierachical_query(const Predicate &predicate, OutIter out_it) const;
-			/// Defines the traget query level, if 0 then leaf values are retrieved
-			/// otherwise hierachical node values.
+			/// Defines the target query level, if 0 then leaf values are retrieved
+			/// otherwise hierarchical node values.
 			/// @note Only used for hierachical_query.
 			void setQueryTargetLevel(int level);
 
 			/// @see spatial::SpatialPredicate for available predicates.
-			template <typename Predicate> bool query(const Predicate &predicate) const;
-			template <typename Predicate, typename OutIter>
-			size_t query(const Predicate &predicate, OutIter out_it) const;
+			template <typename BoxPredicate> 
+			bool query(const BoxPredicate&predicate) const;
+			template <typename BoxPredicate, typename OutIter>
+			size_t query(const BoxPredicate&predicate, OutIter out_it) const;
+
+			/// Adds the value if the predicate condition is true.
+			template <typename OutIter, typename Predicate = spatial::detail::AlwayTruePredicate>
+			size_t rayQuery(const RealType rayOrigin[Dimension], const RealType rayDirection[Dimension], OutIter out_it, const Predicate& predicate = spatial::detail::AlwayTruePredicate()) const;
 
 			/// Performs a nearest neighbour search.
 			/// @note Uses the distance to the center of the bbox.
@@ -387,6 +392,10 @@ namespace spatial {
 			void queryRec(node_ptr_type node, const Predicate &predicate,
 				size_t &foundCount, OutIter out_it) const;
 
+			template <typename Predicate, typename OutIter>
+			void rayQueryRec(node_ptr_type node, const RealType rayOrigin[Dimension], const RealType rayDirection[Dimension], const Predicate& predicate,
+				size_t& foundCount, OutIter out_it) const;
+
 			template <typename OutIter>
 			void nearestRec(node_ptr_type node, const T point[2], T radius,
 				size_t &foundCount, OutIter it) const;
@@ -397,11 +406,11 @@ namespace spatial {
 
 			inline static RealType distance(const T point0[Dimension], const T point1[Dimension]) {
 
-				RealType d = point0[0] - point1[0];
+				RealType d = RealType(point0[0] - point1[0]);
 				d *= d;
 				for (int i = 1; i < Dimension; i++)
 				{
-					RealType temp = point0[i] - point1[i];
+					const RealType temp = RealType(point0[i] - point1[i]);
 					d += temp * temp;
 				}
 				return d;
@@ -409,11 +418,11 @@ namespace spatial {
 
 			inline static RealType distance(const T point[Dimension], const bbox_type& bbox) {
 
-				RealType d = std::max(std::max(bbox.min[0] - point[0], (T)0), point[0] - bbox.max[0]);
+				RealType d = (RealType)std::max(std::max(bbox.min[0] - point[0], (T)0), point[0] - bbox.max[0]);
 				d *= d;
 				for (int i = 1; i < Dimension; i++)
 				{
-					RealType temp = std::max(std::max(bbox.min[i] - point[i], (T)0), point[i] - bbox.max[i]);
+					const RealType temp = (RealType)std::max(std::max(bbox.min[i] - point[i], (T)0), point[i] - bbox.max[i]);
 					d += temp * temp;
 				}
 
@@ -629,6 +638,15 @@ namespace spatial {
 
 		size_t foundCount = 0;
 		queryRec(m_root, predicate, foundCount, out_it);
+		return foundCount;
+	}
+
+	TREE_TEMPLATE
+	template <typename OutIter, typename Predicate>
+	size_t TREE_QUAL::rayQuery(const RealType rayOrigin[Dimension], const RealType rayDirection[Dimension], OutIter out_it, const Predicate& predicate) const
+	{
+		size_t foundCount = 0;
+		rayQueryRec(m_root, rayOrigin, rayDirection, predicate, foundCount, out_it);
 		return foundCount;
 	}
 
@@ -1380,6 +1398,33 @@ namespace spatial {
 
 				if (predicate.bbox.overlaps(nodeBBox)) {
 					queryRec(node->children[index], predicate, foundCount, it);
+				}
+			}
+		}
+	}
+
+	TREE_TEMPLATE
+		template <typename Predicate, typename OutIter>
+	void TREE_QUAL::rayQueryRec(node_ptr_type node, const RealType rayOrigin[Dimension], const RealType rayDirection[Dimension], const Predicate& predicate,
+		size_t& foundCount, OutIter it) const {
+		assert(node);
+		assert(node->level >= 0);
+
+		if (node->isLeaf()) {
+			for (count_type index = 0; index < node->count; ++index) {
+				if (predicate(node->values[index]) && node->bboxes[index].intersectsRay<RealType>(rayOrigin, rayDirection)) {
+					*it = node->values[index];
+					++it;
+					++foundCount;
+				}
+			}
+		}
+		else {
+			for (count_type index = 0; index < node->count; ++index) {
+				const bbox_type& nodeBBox = node->bboxes[index];
+
+				if (nodeBBox.intersectsRay<RealType>(rayOrigin, rayDirection)) {
+					rayQueryRec(node->children[index], rayOrigin, rayDirection, predicate, foundCount, it);
 				}
 			}
 		}

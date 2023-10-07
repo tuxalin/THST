@@ -49,6 +49,9 @@ namespace spatial {
 		bool contains(const BoundingBox &bbox) const;
 		bool contains(const T point[Dimension]) const;
 
+		template <typename RealType>
+		bool intersectsRay(const RealType rayOrigin[Dimension], const RealType rayDirection[Dimension]) const;
+
 		float distance(const T point[Dimension]) const;
 		T distanceSquare(const T point[Dimension]) const;
 
@@ -172,6 +175,42 @@ namespace spatial {
 			if (min[index] > bbox.max[index] || bbox.min[index] > max[index]) {
 				return false;
 			}
+		}
+		return true;
+	}
+
+	
+	BBOX_TEMPLATE
+		template <typename RealType>
+		bool BBOX_QUAL::intersectsRay(const RealType rayOrigin[Dimension], const RealType rayDirection[Dimension]) const {
+		// loop should get unrolled
+		RealType tMin = -std::numeric_limits<RealType>::max();
+		RealType tMax = std::numeric_limits<RealType>::max();
+		for (int index = 0; index < Dimension; ++index) {
+
+			// check if parallel
+			if (rayDirection[index] == (RealType)0)
+			{
+				if(rayOrigin[index] < min[index] || rayOrigin[index] > max[index])
+					return false;
+
+				continue;
+			}
+
+			const RealType invDir =(RealType)1.0f / rayDirection[index];
+			RealType deltaMin = (min[index] - rayOrigin[index]) * invDir;
+			RealType deltaMax = (max[index] - rayOrigin[index]) * invDir;
+			
+			if (deltaMin > deltaMax) 
+				std::swap(deltaMin, deltaMax);
+
+			if ((tMin > deltaMax) || (deltaMin > tMax))
+				return false;
+
+			if (deltaMin > tMin)
+				tMin = deltaMin;
+			if (deltaMax < tMax)
+				tMax = deltaMax;
 		}
 		return true;
 	}

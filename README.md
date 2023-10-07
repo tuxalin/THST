@@ -14,6 +14,7 @@ Some of the currently implemented features are:
 - leaf and depth-first tree traversals for spatial partitioning, via custom iterators
 - custom indexable getter similar to boost's
 - hierarchical query
+- ray box intersection query
 - nearest neighbour search
 - conditional insert with custom predicates
 - support for custom allocators for internal nodes
@@ -110,6 +111,17 @@ How to use the search algorithms:
 
     // neatest neighbor search
     rtree.nearest(point, radius, std::back_inserter(results));
+```
+
+How to use the ray query:
+```cpp
+  rayOrigin = Point<float>({ 62, 70 });
+  rayDir = Point<float>({ 0, -2 });
+  rtree.rayQuery(rayOrigin.data, rayDir.data, std::back_inserter(results), fnTestPredicate);
+
+  // can also provide a filter predicate
+  auto fnFilterPredicate = [](const Box2<int>& box) {return box.min[0] == 0; };
+  rtree.rayQuery(rayOrigin.data, rayDir.data, std::back_inserter(results), fnFilterPredicate);
 ```
 
 **Be sure to check the [test](test) and [examples](examples) folders for more detailed info.**
