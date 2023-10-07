@@ -193,8 +193,9 @@ namespace spatial {
 			if (isLeaf()) // No subdivision yet
 			{
 				if (objects.size() < max_child_items + 1) {
+					size_t count = objects.size();
 					addObject(obj);
-					return true;
+					return objects.size() > count;
 				}
 
 				// subdivide node

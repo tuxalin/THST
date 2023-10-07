@@ -358,10 +358,9 @@ namespace spatial {
 		assert(m_root->box.contains(obj.box));
 
 		bool success = m_root->insert(obj, m_levels, m_allocator);
-		++m_count;
-
-		(void)(success);
-		assert(success);
+		if (success)
+			++m_count;
+		assert(m_count == m_root->count());
 	}
 
 	TREE_TEMPLATE
