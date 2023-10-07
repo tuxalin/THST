@@ -124,7 +124,7 @@ How to use the ray query:
   rtree.rayQuery(rayOrigin.data, rayDir.data, std::back_inserter(results), fnFilterPredicate);
 ```
 
-**Be sure to check the [test](test) and [examples](examples) folders for more detailed info.**
+**Be sure to check the [test](test) folder for more detailed usage and examples.**
 
 ## Benchmarks
 
