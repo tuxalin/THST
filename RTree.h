@@ -1412,7 +1412,7 @@ namespace spatial {
 
 		if (node->isLeaf()) {
 			for (count_type index = 0; index < node->count; ++index) {
-				if (predicate(node->values[index]) && node->bboxes[index].intersectsRay<RealType>(rayOrigin, rayDirection)) {
+				if (predicate(node->values[index]) && node->bboxes[index].template intersectsRay<RealType>(rayOrigin, rayDirection)) {
 					*it = node->values[index];
 					++it;
 					++foundCount;
@@ -1423,7 +1423,7 @@ namespace spatial {
 			for (count_type index = 0; index < node->count; ++index) {
 				const bbox_type& nodeBBox = node->bboxes[index];
 
-				if (nodeBBox.intersectsRay<RealType>(rayOrigin, rayDirection)) {
+				if (nodeBBox.template intersectsRay<RealType>(rayOrigin, rayDirection)) {
 					rayQueryRec(node->children[index], rayOrigin, rayDirection, predicate, foundCount, it);
 				}
 			}
