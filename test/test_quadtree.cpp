@@ -1,5 +1,5 @@
 #include <doctest/doctest.h>
-#include <QuadTree.h>
+#include <THST/QuadTree.h>
 
 #include <array>
 #include <iterator>

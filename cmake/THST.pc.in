@@ -1,0 +1,7 @@
+includedir=@INCLUDE_INSTALL_DIR@
+
+Name: @PROJECT_NAME@
+Description: Templated hierarchical spatial trees designed for high-performance and hierarchical spatial partitioning use cases.
+Version: @LIB_VERSION_STRING@
+URL: https://github.com/tuaxlin/THST
+Cflags: -I${includedir}

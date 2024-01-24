@@ -4,7 +4,7 @@
 
 #define SPATIAL_TREE_ALLOCATOR 2
 
-#include <RTree.h>
+#include <THST/RTree.h>
 #include <iostream>
 #include <numeric>
 #include <sstream>
